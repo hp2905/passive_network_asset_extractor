@@ -1,0 +1,29 @@
+name,mac,oui,ip,vlan,stack,hostname,vendor,device_type,os,role,zone,protocols
+dc01,00:1B:78:11:22:01,00:1B:78,10.10.1.10,10,windows_server,DC01,HP,server,Windows Server,domain_controller,it,arp_announce;ldap_client;ntp_server
+dc02,00:1B:78:11:22:02,00:1B:78,10.10.1.11,10,windows_server,DC02,HP,server,Windows Server,domain_controller,it,arp_announce;ldap_client
+ws-nurse-01,00:14:22:33:44:01,00:14:22,10.10.1.51,10,windows10,WS-NURSE-01,Dell,workstation,Windows 10,clinical_workstation,it,arp_announce;dhcp_client;dns_query;http_client;ipp_client;ldap_client;mdns_announce;nbns_announce;smb_client
+ehr-app01,00:0C:29:55:66:01,00:0C:29,10.10.1.20,10,linux_generic,ehr-app01,VMware,server,Linux,ehr_application_server,it,arp_announce;hl7_client
+printer-ward2,00:1B:78:AA:BB:02,00:1B:78,10.10.1.80,10,printer_rtos,HPLJ-WARD2,HP,printer,printer firmware,printer,it,arp_announce;dhcp_client;mdns_announce
+core-sw-01,00:1B:0D:AA:BB:01,00:1B:0D,10.10.0.1,10,cisco_ios,CORE-SW-01,Cisco,network_switch,Cisco IOS,core_switch,it,arp_announce;cdp_announce;lldp_announce;snmp_agent;stp_bpdu
+access-sw-ward2,00:1B:0D:AA:BB:02,00:1B:0D,10.10.0.2,10,cisco_ios,ACCESS-SW-WARD2,Cisco,network_switch,Cisco IOS,access_switch,it,arp_announce;cdp_announce;lldp_announce;snmp_agent;stp_bpdu
+nms01,00:0C:29:55:66:0A,00:0C:29,10.10.1.30,10,linux_generic,nms01,VMware,server,Linux,network_management_station,it,arp_announce;ssh_session
+voip-nurse-2101,00:1B:0D:CC:DD:05,00:1B:0D,10.10.3.21,10,voip_phone,SEP001B0DCCDD05,Cisco,voip_phone,Embedded Linux,nurse_station_handset,it,arp_announce;dhcp_client;sip_register
+pbx01,00:0C:29:55:66:0B,00:0C:29,10.10.3.5,10,linux_generic,pbx01,VMware,server,Linux,sip_pbx,it,arp_announce;ssh_session
+pacs01,00:0C:29:77:88:01,00:0C:29,10.20.1.10,20,linux_generic,pacs01,VMware,server,Linux,pacs_server,clinical,arp_announce
+ct-scanner-01,00:1B:1B:CC:DD:01,00:1B:1B,10.20.1.31,20,embedded_linux,CT-01,Siemens,imaging_modality,Embedded Linux,ct_scanner,clinical,arp_announce;dicom_client
+interface-engine,00:0C:29:99:AA:01,00:0C:29,10.20.1.5,20,linux_generic,mirth01,VMware,server,Linux,hl7_interface_engine,clinical,arp_announce
+monitor-icu-03,00:1B:1B:EE:FF:03,00:1B:1B,10.30.2.13,30,medical_rtos,MON-ICU-03,Siemens,patient_monitor,RTOS,vitals_telemetry,medical,arp_announce;hl7_client
+monitor-icu-04,00:1B:1B:EE:FF:04,00:1B:1B,10.30.2.14,30,medical_rtos,MON-ICU-04,Siemens,patient_monitor,RTOS,vitals_telemetry,medical,arp_announce;hl7_client
+monitor-icu-05,00:1B:1B:11:22:05,00:1B:1B,10.30.2.40,30,medical_rtos,MON-ICU-05,Siemens,patient_monitor,Embedded Linux,vitals_telemetry,medical,arp_announce;hl7_client;snmp_agent
+central-station,00:14:22:BB:CC:01,00:14:22,10.30.1.5,30,windows10,CENTRAL-ICU,Dell,workstation,Windows 10,central_monitoring_station,medical,arp_announce;dns_query;smb_client
+bms-server,00:80:F4:12:34:01,00:80:F4,10.40.1.10,40,linux_generic,bms01,Schneider Electric,server,Linux,building_management_server,ot,arp_announce;bacnet_whois
+hvac-ahu-02,00:80:F4:56:78:02,00:80:F4,10.40.2.22,40,vxworks_ot,AHU-02,Schneider Electric,hvac_controller,VxWorks,air_handling_unit,ot,arp_announce;bacnet_iam
+power-scada,00:00:BC:AA:11:01,00:00:BC,10.40.1.20,40,linux_generic,power-scada,Rockwell Automation,server,Linux,modbus_master,ot,arp_announce;modbus_poll
+genset-ctrl,00:00:BC:AA:22:02,00:00:BC,10.40.2.31,40,vxworks_ot,GENSET-01,Rockwell Automation,plc,VxWorks,generator_controller,ot,arp_announce
+ups-ctrl,00:80:F4:99:88:03,00:80:F4,10.40.2.32,40,vxworks_ot,UPS-MAIN,Schneider Electric,plc,VxWorks,ups_controller,ot,arp_announce
+cam-corridor-04,00:40:8C:DD:EE:04,00:40:8C,10.50.1.44,50,embedded_linux,AXIS-CORR-04,Axis Communications,ip_camera,Embedded Linux,cctv,iot,arp_announce;dhcp_client;mdns_announce
+vms01,00:0C:29:EE:11:07,00:0C:29,10.50.1.20,50,linux_generic,vms01,VMware,server,Linux,video_management_server,iot,arp_announce;rtsp_client
+rtls-gateway,00:0C:29:EE:11:05,00:0C:29,10.50.1.60,50,embedded_linux,rtls-gw-01,VMware,iot_gateway,Embedded Linux,rtls_gateway,iot,arp_announce;mqtt_publish
+iot-broker,00:0C:29:EE:11:06,00:0C:29,10.50.1.10,50,linux_generic,mosquitto01,VMware,server,Linux,mqtt_broker,iot,arp_announce
+patient-tv-214,00:16:32:EE:FF:06,00:16:32,10.50.1.70,50,smart_tv,SamsungTV-214,Samsung,smart_tv,Embedded Linux,patient_entertainment,iot,arp_announce;dhcp_client;http_client;mdns_announce;ssdp_notify
+quiet-device,00:1B:1B:00:00:99,00:1B:1B,10.30.2.99,30,medical_rtos,,Siemens,unknown_medical,RTOS,rarely_transmits,medical,arp_announce

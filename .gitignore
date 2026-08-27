@@ -1,0 +1,13 @@
+# Extractor outputs
+assets.csv
+evidence.csv
+
+# Captures
+*.pcap
+*.pcapng
+!generated_hospital_sample.pcap
+!ground_truth_sample.csv
+
+__pycache__/
+*.pyc
+.venv/

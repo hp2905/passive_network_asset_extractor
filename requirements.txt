@@ -1,0 +1,25 @@
+# Python dependencies for extract.py
+#
+# There are none. The extractor uses only the Python standard library:
+#   argparse, binascii, collections, csv, os, re, statistics, subprocess, sys
+#
+# This file exists so that `pip install -r requirements.txt` succeeds in
+# environments and CI pipelines that expect it. It installs nothing.
+#
+# Requirements that pip cannot satisfy:
+#
+#   Python  >= 3.8   (assignment expressions are used throughout)
+#   tshark  >= 3.x   (Wireshark's command-line dissector, invoked as a
+#                     subprocess; it performs all packet parsing)
+#
+# Install tshark with the platform's package manager or installer:
+#
+#   Debian / Ubuntu   sudo apt install tshark
+#   RHEL / Fedora     sudo dnf install wireshark-cli
+#   macOS (Homebrew)  brew install wireshark
+#   Windows           https://www.wireshark.org/download.html
+#                     (keep the TShark component selected during install)
+#
+# Post-install configuration is required on Debian and Ubuntu, where the
+# account must be added to the wireshark group, and on Windows, where the
+# Wireshark directory must be added to PATH. See README.md.
