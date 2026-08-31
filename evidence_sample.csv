@@ -1,0 +1,400 @@
+mac,attribute,value,source,tier,tier_name,observations
+00:00:bc:aa:11:01,behaviour,"deterministic poller (~1.00s, cv=0.009)",timing/port-502,0.5,inferred,1
+00:00:bc:aa:11:01,behaviour,"deterministic poller (~1.00s, cv=0.010)",timing/port-502,0.5,inferred,1
+00:00:bc:aa:11:01,device_type_hint,server,tcp-stack-exact/syn,0.3,weak,28800
+00:00:bc:aa:11:01,hops_from_sensor,0,ttl-delta,0.5,inferred,28800
+00:00:bc:aa:11:01,os,Linux (modern kernel),tcp-stack-exact/syn,0.5,inferred,28800
+00:00:bc:aa:11:01,role,scada master,port-502/client,0.5,inferred,1
+00:00:bc:aa:11:01,role_hint,cyclic master / telemetry source,timing/port-502,0.3,weak,2
+00:00:bc:aa:11:01,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn,0.75,semi-explicit,28800
+00:00:bc:aa:11:01,vendor,RockwellAuto,oui-registry,0.75,semi-explicit,172812
+00:00:bc:aa:11:01,zone,ot,vlan-40-protocol-mix,0.5,inferred,1
+00:00:bc:aa:22:02,device_type_hint,plc,tcp-stack-exact/syn-ack,0.3,weak,14400
+00:00:bc:aa:22:02,hops_from_sensor,0,ttl-delta,0.5,inferred,14400
+00:00:bc:aa:22:02,os,VxWorks / industrial stack,tcp-stack-exact/syn-ack,0.5,inferred,14400
+00:00:bc:aa:22:02,role,plc / modbus outstation,port-502/server,0.5,inferred,1
+00:00:bc:aa:22:02,service,modbus,port-502/server,0.5,inferred,1
+00:00:bc:aa:22:02,stack_raw,"ttl=255,win=4096,ws=None,ts=0,sack=0",tcp-stack/syn-ack,0.75,semi-explicit,14400
+00:00:bc:aa:22:02,vendor,RockwellAuto,oui-registry,0.75,semi-explicit,43204
+00:00:bc:aa:22:02,zone,ot,vlan-40-protocol-mix,0.5,inferred,1
+00:0c:29:55:66:01,application,EHR-APP01,hl7-msh-sending-application,0.95,self-declared,48
+00:0c:29:55:66:01,application,SEND,hl7-msh-receiving-application,0.95,self-declared,48
+00:0c:29:55:66:01,behaviour,"deterministic poller (~20.01s, cv=0.120)",timing/port-2575,0.5,inferred,1
+00:0c:29:55:66:01,device_type_hint,server,tcp-stack-exact/syn,0.3,weak,720
+00:0c:29:55:66:01,device_type_hint,server,tcp-stack-exact/syn-ack,0.3,weak,352
+00:0c:29:55:66:01,facility,HOSP,hl7-msh-sending-facility,0.95,self-declared,48
+00:0c:29:55:66:01,hops_from_sensor,0,ttl-delta,0.5,inferred,1072
+00:0c:29:55:66:01,os,Linux (Debian),ssh-banner-distro,0.75,semi-explicit,8
+00:0c:29:55:66:01,os,Linux (modern kernel),tcp-stack-exact/syn,0.5,inferred,720
+00:0c:29:55:66:01,os,Linux (modern kernel),tcp-stack-exact/syn-ack,0.5,inferred,352
+00:0c:29:55:66:01,role,hl7 sender,port-2575/client,0.5,inferred,1
+00:0c:29:55:66:01,role,ssh server,port-22/server,0.5,inferred,1
+00:0c:29:55:66:01,role,web server,port-80/server,0.5,inferred,1
+00:0c:29:55:66:01,role_hint,cyclic master / telemetry source,timing/port-2575,0.3,weak,1
+00:0c:29:55:66:01,service,http,port-80/server,0.5,inferred,1
+00:0c:29:55:66:01,service,ssh,port-22/server,0.5,inferred,1
+00:0c:29:55:66:01,software,SSH-2.0-OpenSSH_9.6p1 Debian-5,ssh-banner,0.95,self-declared,8
+00:0c:29:55:66:01,software,nginx/1.24.0,http-server-header,0.75,semi-explicit,344
+00:0c:29:55:66:01,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn,0.75,semi-explicit,720
+00:0c:29:55:66:01,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,352
+00:0c:29:55:66:01,vendor,VMware,oui-registry,0.75,semi-explicit,5388
+00:0c:29:55:66:01,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:0c:29:55:66:0a,behaviour,"deterministic poller (~1793.69s, cv=0.049)",timing/port-22,0.5,inferred,1
+00:0c:29:55:66:0a,device_type_hint,server,tcp-stack-exact/syn,0.3,weak,8
+00:0c:29:55:66:0a,device_type_hint,server,tcp-stack-exact/syn-ack,0.3,weak,4
+00:0c:29:55:66:0a,hops_from_sensor,0,ttl-delta,0.5,inferred,13
+00:0c:29:55:66:0a,ip_stack_raw,"ttl=64,df=1,ipid=zero",ip-header,0.75,semi-explicit,1
+00:0c:29:55:66:0a,os,Linux (Ubuntu),ssh-banner-distro,0.75,semi-explicit,12
+00:0c:29:55:66:0a,os,Linux (modern kernel),ip-header-exact,0.3,weak,1
+00:0c:29:55:66:0a,os,Linux (modern kernel),tcp-stack-exact/syn,0.5,inferred,8
+00:0c:29:55:66:0a,os,Linux (modern kernel),tcp-stack-exact/syn-ack,0.5,inferred,4
+00:0c:29:55:66:0a,role,snmp manager,port-161/client,0.5,inferred,1
+00:0c:29:55:66:0a,role,ssh server,port-22/server,0.5,inferred,1
+00:0c:29:55:66:0a,role_hint,cyclic master / telemetry source,timing/port-22,0.3,weak,1
+00:0c:29:55:66:0a,service,ssh,port-22/server,0.5,inferred,1
+00:0c:29:55:66:0a,software,SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5,ssh-banner,0.95,self-declared,12
+00:0c:29:55:66:0a,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn,0.75,semi-explicit,8
+00:0c:29:55:66:0a,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,4
+00:0c:29:55:66:0a,vendor,VMware,oui-registry,0.75,semi-explicit,191
+00:0c:29:55:66:0a,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:0c:29:55:66:0b,device_type_hint,server,tcp-stack-exact/syn,0.3,weak,4
+00:0c:29:55:66:0b,hops_from_sensor,0,ttl-delta,0.5,inferred,4
+00:0c:29:55:66:0b,os,Linux (Ubuntu),ssh-banner-distro,0.75,semi-explicit,4
+00:0c:29:55:66:0b,os,Linux (modern kernel),tcp-stack-exact/syn,0.5,inferred,4
+00:0c:29:55:66:0b,role,ssh client,port-22/client,0.5,inferred,1
+00:0c:29:55:66:0b,software,SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.6,ssh-banner,0.95,self-declared,4
+00:0c:29:55:66:0b,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn,0.75,semi-explicit,4
+00:0c:29:55:66:0b,vendor,VMware,oui-registry,0.75,semi-explicit,36
+00:0c:29:55:66:0b,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:0c:29:77:88:01,ae_title,CT-01,dicom-calling-ae,0.95,self-declared,48
+00:0c:29:77:88:01,ae_title,PACS01,dicom-called-ae,0.95,self-declared,48
+00:0c:29:77:88:01,device_type,imaging modality,dicom-calling-ae,0.75,semi-explicit,48
+00:0c:29:77:88:01,device_type,pacs / image archive,dicom-called-ae,0.75,semi-explicit,48
+00:0c:29:77:88:01,device_type_hint,server,tcp-stack-exact/syn-ack,0.3,weak,56
+00:0c:29:77:88:01,hops_from_sensor,0,ttl-delta,0.5,inferred,56
+00:0c:29:77:88:01,os,Linux (modern kernel),tcp-stack-exact/syn-ack,0.5,inferred,56
+00:0c:29:77:88:01,role,pacs / image archive,port-11112/server,0.5,inferred,1
+00:0c:29:77:88:01,service,dicom,port-11112/server,0.5,inferred,1
+00:0c:29:77:88:01,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,56
+00:0c:29:77:88:01,vendor,VMware,oui-registry,0.75,semi-explicit,180
+00:0c:29:77:88:01,zone,clinical,vlan-20-protocol-mix,0.5,inferred,1
+00:0c:29:99:aa:01,application,INTERFACE-ENGINE,hl7-msh-receiving-application,0.95,self-declared,48
+00:0c:29:99:aa:01,application,RECV,hl7-msh-sending-application,0.95,self-declared,48
+00:0c:29:99:aa:01,device_type_hint,server,tcp-stack-exact/syn-ack,0.3,weak,720
+00:0c:29:99:aa:01,facility,HOSP,hl7-msh-sending-facility,0.95,self-declared,48
+00:0c:29:99:aa:01,hops_from_sensor,0,ttl-delta,0.5,inferred,720
+00:0c:29:99:aa:01,os,Linux (modern kernel),tcp-stack-exact/syn-ack,0.5,inferred,720
+00:0c:29:99:aa:01,role,hl7 receiver,port-2575/server,0.5,inferred,1
+00:0c:29:99:aa:01,service,hl7-mllp,port-2575/server,0.5,inferred,1
+00:0c:29:99:aa:01,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,720
+00:0c:29:99:aa:01,vendor,VMware,oui-registry,0.75,semi-explicit,2172
+00:0c:29:99:aa:01,zone,clinical,vlan-20-protocol-mix,0.5,inferred,1
+00:0c:29:ee:11:05,behaviour,"deterministic poller (~10.00s, cv=0.090)",timing/port-1883,0.5,inferred,1
+00:0c:29:ee:11:05,device_type_hint,appliance,tcp-stack-exact/syn,0.3,weak,1440
+00:0c:29:ee:11:05,hops_from_sensor,0,ttl-delta,0.5,inferred,1440
+00:0c:29:ee:11:05,os,Embedded Linux,tcp-stack-exact/syn,0.5,inferred,1440
+00:0c:29:ee:11:05,role,iot gateway,port-1883/client,0.5,inferred,1
+00:0c:29:ee:11:05,role_hint,cyclic master / telemetry source,timing/port-1883,0.3,weak,1
+00:0c:29:ee:11:05,stack_raw,"ttl=64,win=5840,ws=2,ts=1,sack=1",tcp-stack/syn,0.75,semi-explicit,1440
+00:0c:29:ee:11:05,vendor,VMware,oui-registry,0.75,semi-explicit,8648
+00:0c:29:ee:11:05,zone,iot,vlan-50-protocol-mix,0.5,inferred,1
+00:0c:29:ee:11:06,device_type_hint,server,tcp-stack-exact/syn-ack,0.3,weak,1440
+00:0c:29:ee:11:06,hops_from_sensor,0,ttl-delta,0.5,inferred,1440
+00:0c:29:ee:11:06,os,Linux (modern kernel),tcp-stack-exact/syn-ack,0.5,inferred,1440
+00:0c:29:ee:11:06,role,mqtt broker,port-1883/server,0.5,inferred,1
+00:0c:29:ee:11:06,service,mqtt,port-1883/server,0.5,inferred,1
+00:0c:29:ee:11:06,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,1440
+00:0c:29:ee:11:06,vendor,VMware,oui-registry,0.75,semi-explicit,4332
+00:0c:29:ee:11:06,zone,iot,vlan-50-protocol-mix,0.5,inferred,1
+00:0c:29:ee:11:07,behaviour,"deterministic poller (~120.05s, cv=0.061)",timing/port-554,0.5,inferred,1
+00:0c:29:ee:11:07,device_type_hint,server,tcp-stack-exact/syn,0.3,weak,120
+00:0c:29:ee:11:07,hops_from_sensor,0,ttl-delta,0.5,inferred,120
+00:0c:29:ee:11:07,os,Linux (modern kernel),tcp-stack-exact/syn,0.5,inferred,120
+00:0c:29:ee:11:07,role,video management server,port-554/client,0.5,inferred,1
+00:0c:29:ee:11:07,role_hint,cyclic master / telemetry source,timing/port-554,0.3,weak,1
+00:0c:29:ee:11:07,stack_raw,"ttl=64,win=29200,ws=7,ts=1,sack=1",tcp-stack/syn,0.75,semi-explicit,120
+00:0c:29:ee:11:07,vendor,VMware,oui-registry,0.75,semi-explicit,732
+00:0c:29:ee:11:07,zone,iot,vlan-50-protocol-mix,0.5,inferred,1
+00:14:22:33:44:01,behaviour,"deterministic poller (~300.21s, cv=0.090)",timing/port-389,0.5,inferred,1
+00:14:22:33:44:01,behaviour,"deterministic poller (~598.62s, cv=0.102)",timing/port-445,0.5,inferred,1
+00:14:22:33:44:01,device_type_hint,workstation,tcp-stack-exact/syn,0.3,weak,408
+00:14:22:33:44:01,domain,hospital.local,ldap-bind-dn,0.95,self-declared,48
+00:14:22:33:44:01,hops_from_sensor,0,ttl-delta,0.5,inferred,409
+00:14:22:33:44:01,hostname,WS-NURSE-01,mdns,0.95,self-declared,48
+00:14:22:33:44:01,hostname,WS-NURSE-01,netbios-name,0.95,self-declared,24
+00:14:22:33:44:01,hostname,ws-nurse-01,ldap-bind-dn,0.95,self-declared,48
+00:14:22:33:44:01,ip_stack_raw,"ttl=128,df=1,ipid=random",ip-header,0.75,semi-explicit,1
+00:14:22:33:44:01,os,Windows 10/11,tcp-stack-exact/syn,0.5,inferred,408
+00:14:22:33:44:01,os,Windows family,ip-header-exact,0.3,weak,1
+00:14:22:33:44:01,role,dns client,port-53/client,0.5,inferred,1
+00:14:22:33:44:01,role,domain member,port-389/client,0.5,inferred,1
+00:14:22:33:44:01,role,domain member,port-445/client,0.5,inferred,1
+00:14:22:33:44:01,role,netbios name service,port-137/server,0.5,inferred,1
+00:14:22:33:44:01,role,print client,port-631/client,0.5,inferred,1
+00:14:22:33:44:01,role,web client,port-80/client,0.5,inferred,1
+00:14:22:33:44:01,role_hint,cyclic master / telemetry source,timing/port-389,0.3,weak,1
+00:14:22:33:44:01,role_hint,cyclic master / telemetry source,timing/port-445,0.3,weak,1
+00:14:22:33:44:01,service,netbios-ns,port-137/server,0.5,inferred,1
+00:14:22:33:44:01,smb_dialect,0x0202,smb2,0.75,semi-explicit,24
+00:14:22:33:44:01,stack_raw,"ttl=128,win=64240,ws=8,ts=0,sack=1",tcp-stack/syn,0.75,semi-explicit,408
+00:14:22:33:44:01,user_agent,CUPS/2.4.7,http-user-agent,0.75,semi-explicit,16
+00:14:22:33:44:01,user_agent,Mozilla/5.0 (Windows NT 10.0; Win64; x64),http-user-agent,0.75,semi-explicit,320
+00:14:22:33:44:01,vendor,Dell,oui-registry,0.75,semi-explicit,3024
+00:14:22:33:44:01,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:14:22:bb:cc:01,application,CENTRAL-STATION,hl7-msh-receiving-application,0.95,self-declared,1452
+00:14:22:bb:cc:01,application,RECV,hl7-msh-sending-application,0.95,self-declared,1452
+00:14:22:bb:cc:01,behaviour,"deterministic poller (~596.37s, cv=0.093)",timing/port-445,0.5,inferred,1
+00:14:22:bb:cc:01,device_type_hint,workstation,tcp-stack-exact/syn,0.3,weak,24
+00:14:22:bb:cc:01,device_type_hint,workstation,tcp-stack-exact/syn-ack,0.3,weak,21600
+00:14:22:bb:cc:01,facility,HOSP,hl7-msh-sending-facility,0.95,self-declared,1452
+00:14:22:bb:cc:01,hops_from_sensor,0,ttl-delta,0.5,inferred,21625
+00:14:22:bb:cc:01,ip_stack_raw,"ttl=128,df=1,ipid=incrementing",ip-header,0.75,semi-explicit,1
+00:14:22:bb:cc:01,os,Windows 10/11,tcp-stack-exact/syn,0.5,inferred,24
+00:14:22:bb:cc:01,os,Windows 10/11,tcp-stack-exact/syn-ack,0.5,inferred,21600
+00:14:22:bb:cc:01,os,Windows family,ip-header-exact,0.3,weak,1
+00:14:22:bb:cc:01,role,dns client,port-53/client,0.5,inferred,1
+00:14:22:bb:cc:01,role,domain member,port-445/client,0.5,inferred,1
+00:14:22:bb:cc:01,role,hl7 receiver,port-2575/server,0.5,inferred,1
+00:14:22:bb:cc:01,role_hint,cyclic master / telemetry source,timing/port-445,0.3,weak,1
+00:14:22:bb:cc:01,service,hl7-mllp,port-2575/server,0.5,inferred,1
+00:14:22:bb:cc:01,smb_dialect,0x0202,smb2,0.75,semi-explicit,24
+00:14:22:bb:cc:01,stack_raw,"ttl=128,win=64240,ws=8,ts=0,sack=1",tcp-stack/syn,0.75,semi-explicit,24
+00:14:22:bb:cc:01,stack_raw,"ttl=128,win=64240,ws=8,ts=0,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,21600
+00:14:22:bb:cc:01,vendor,Dell,oui-registry,0.75,semi-explicit,65080
+00:14:22:bb:cc:01,zone,clinical,vlan-30-protocol-mix,0.5,inferred,1
+00:16:32:ee:ff:06,behaviour,"deterministic poller (~599.03s, cv=0.084)",timing/port-80,0.5,inferred,1
+00:16:32:ee:ff:06,device_type_hint,workstation,tcp-stack-exact/syn,0.3,weak,24
+00:16:32:ee:ff:06,dhcp_fingerprint,1-3-6-15-26-28-51-58-59,dhcp-option55,0.75,semi-explicit,2
+00:16:32:ee:ff:06,hops_from_sensor,0,ttl-delta,0.5,inferred,25
+00:16:32:ee:ff:06,hostname,SamsungTV-214,dhcp-hostname,0.95,self-declared,2
+00:16:32:ee:ff:06,hostname,SamsungTV-214,mdns,0.95,self-declared,48
+00:16:32:ee:ff:06,ip_stack_raw,"ttl=64,df=1,ipid=random",ip-header,0.75,semi-explicit,1
+00:16:32:ee:ff:06,os,FreeBSD / macOS family,tcp-stack-exact/syn,0.5,inferred,24
+00:16:32:ee:ff:06,os,Linux,ssdp-server-header,0.95,self-declared,16
+00:16:32:ee:ff:06,os,Linux / embedded family,ip-header-family,0.3,weak,1
+00:16:32:ee:ff:06,role,dhcp client,port-68/server,0.5,inferred,1
+00:16:32:ee:ff:06,role,upnp control point,port-1900/client,0.5,inferred,1
+00:16:32:ee:ff:06,role,web client,port-80/client,0.5,inferred,1
+00:16:32:ee:ff:06,role_hint,cyclic master / telemetry source,timing/port-80,0.3,weak,1
+00:16:32:ee:ff:06,service,dhcp,port-68/server,0.5,inferred,1
+00:16:32:ee:ff:06,software,Linux/4.9 UPnP/1.0 Samsung-SmartTV/2.1,ssdp-server-header,0.95,self-declared,16
+00:16:32:ee:ff:06,stack_raw,"ttl=64,win=65535,ws=6,ts=1,sack=1",tcp-stack/syn,0.75,semi-explicit,24
+00:16:32:ee:ff:06,user_agent,Mozilla/5.0 (Windows NT 10.0; Win64; x64),http-user-agent,0.75,semi-explicit,24
+00:16:32:ee:ff:06,vendor,SamsungElect,oui-registry,0.75,semi-explicit,218
+00:16:32:ee:ff:06,vendor_class,android-dhcp-11,dhcp-vendor-class,0.75,semi-explicit,2
+00:16:32:ee:ff:06,zone,iot,vlan-50-protocol-mix,0.5,inferred,1
+00:1b:0d:aa:bb:01,device_type,network switch,lldp-system-desc,0.95,self-declared,61
+00:1b:0d:aa:bb:01,device_type,network switch,snmp-sysdescr,0.95,self-declared,48
+00:1b:0d:aa:bb:01,device_type,network switch,stp-participant,0.5,inferred,909
+00:1b:0d:aa:bb:01,hops_from_sensor,0,ttl-delta,0.5,inferred,1
+00:1b:0d:aa:bb:01,hostname,CORE-SW-01,snmp-sysname,0.95,self-declared,48
+00:1b:0d:aa:bb:01,hostname,CORE-SW-01.hospital.local,cdp-device-id,0.95,self-declared,30
+00:1b:0d:aa:bb:01,hostname,CORE-SW-01.hospital.local,lldp-system-name,0.95,self-declared,61
+00:1b:0d:aa:bb:01,ip_stack_raw,"ttl=255,df=1,ipid=incrementing",ip-header,0.75,semi-explicit,1
+00:1b:0d:aa:bb:01,location,"Main Data Centre, Rack B12",snmp-syslocation,0.95,self-declared,48
+00:1b:0d:aa:bb:01,model,cisco WS-C9300-48P,cdp-platform,0.95,self-declared,30
+00:1b:0d:aa:bb:01,os,Cisco IOS,cdp-software-version,0.95,self-declared,30
+00:1b:0d:aa:bb:01,os,Cisco IOS,lldp-system-desc,0.95,self-declared,61
+00:1b:0d:aa:bb:01,os,Cisco IOS,snmp-sysdescr,0.95,self-declared,48
+00:1b:0d:aa:bb:01,os,embedded / industrial stack,ttl255+self-declared-device-class,0.3,weak,1
+00:1b:0d:aa:bb:01,role,snmp agent,port-161/server,0.5,inferred,1
+00:1b:0d:aa:bb:01,role,spanning tree root bridge,stp-root,0.75,semi-explicit,909
+00:1b:0d:aa:bb:01,service,snmp,port-161/server,0.5,inferred,1
+00:1b:0d:aa:bb:01,software,"Cisco IOS Software, C9300 Software (CAT9K_IOSXE), Version 17.06.04",lldp-system-desc,0.95,self-declared,61
+00:1b:0d:aa:bb:01,software,"Cisco IOS Software, C9300 Software, Version 17.06.04, RELEASE SOFTWARE",snmp-sysdescr,0.95,self-declared,48
+00:1b:0d:aa:bb:01,software,"Cisco IOS Software, Version 17.06.04",cdp-software-version,0.95,self-declared,30
+00:1b:0d:aa:bb:01,switch_port,GigabitEthernet1/0/24,cdp-port-id,0.95,self-declared,30
+00:1b:0d:aa:bb:01,switch_port,GigabitEthernet1/0/24,lldp-port-id,0.95,self-declared,61
+00:1b:0d:aa:bb:01,switch_port_desc,uplink to distribution,lldp-port-desc,0.95,self-declared,61
+00:1b:0d:aa:bb:01,vendor,Cisco,cdp-software-version,0.75,semi-explicit,30
+00:1b:0d:aa:bb:01,vendor,Cisco,lldp-system-desc,0.75,semi-explicit,61
+00:1b:0d:aa:bb:01,vendor,Cisco,oui-registry,0.75,semi-explicit,7979
+00:1b:0d:aa:bb:01,vendor,Cisco,snmp-sysdescr,0.75,semi-explicit,48
+00:1b:0d:aa:bb:01,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:1b:0d:aa:bb:02,device_type,network switch,lldp-system-desc,0.95,self-declared,60
+00:1b:0d:aa:bb:02,device_type,network switch,snmp-sysdescr,0.95,self-declared,47
+00:1b:0d:aa:bb:02,device_type,network switch,stp-participant,0.5,inferred,910
+00:1b:0d:aa:bb:02,hops_from_sensor,0,ttl-delta,0.5,inferred,1
+00:1b:0d:aa:bb:02,hostname,ACCESS-SW-WARD2,snmp-sysname,0.95,self-declared,47
+00:1b:0d:aa:bb:02,hostname,ACCESS-SW-WARD2.hospital.local,cdp-device-id,0.95,self-declared,30
+00:1b:0d:aa:bb:02,hostname,ACCESS-SW-WARD2.hospital.local,lldp-system-name,0.95,self-declared,60
+00:1b:0d:aa:bb:02,ip_stack_raw,"ttl=255,df=1,ipid=incrementing",ip-header,0.75,semi-explicit,1
+00:1b:0d:aa:bb:02,location,Ward 2 Comms Cupboard,snmp-syslocation,0.95,self-declared,47
+00:1b:0d:aa:bb:02,model,cisco WS-C9200-24P,cdp-platform,0.95,self-declared,30
+00:1b:0d:aa:bb:02,os,Cisco IOS,cdp-software-version,0.95,self-declared,30
+00:1b:0d:aa:bb:02,os,Cisco IOS,lldp-system-desc,0.95,self-declared,60
+00:1b:0d:aa:bb:02,os,Cisco IOS,snmp-sysdescr,0.95,self-declared,47
+00:1b:0d:aa:bb:02,os,embedded / industrial stack,ttl255+self-declared-device-class,0.3,weak,1
+00:1b:0d:aa:bb:02,role,snmp agent,port-161/server,0.5,inferred,1
+00:1b:0d:aa:bb:02,service,snmp,port-161/server,0.5,inferred,1
+00:1b:0d:aa:bb:02,software,"Cisco IOS Software, C9200 Software (CAT9K_LITE_IOSXE), Version 17.03.05",lldp-system-desc,0.95,self-declared,60
+00:1b:0d:aa:bb:02,software,"Cisco IOS Software, C9200 Software, Version 17.03.05, RELEASE SOFTWARE",snmp-sysdescr,0.95,self-declared,47
+00:1b:0d:aa:bb:02,software,"Cisco IOS Software, Version 17.03.05",cdp-software-version,0.95,self-declared,30
+00:1b:0d:aa:bb:02,switch_port,GigabitEthernet1/0/8,cdp-port-id,0.95,self-declared,30
+00:1b:0d:aa:bb:02,switch_port,GigabitEthernet1/0/8,lldp-port-id,0.95,self-declared,60
+00:1b:0d:aa:bb:02,switch_port_desc,ward 2 nurse station,lldp-port-desc,0.95,self-declared,60
+00:1b:0d:aa:bb:02,vendor,Cisco,cdp-software-version,0.75,semi-explicit,30
+00:1b:0d:aa:bb:02,vendor,Cisco,lldp-system-desc,0.75,semi-explicit,60
+00:1b:0d:aa:bb:02,vendor,Cisco,oui-registry,0.75,semi-explicit,7979
+00:1b:0d:aa:bb:02,vendor,Cisco,snmp-sysdescr,0.75,semi-explicit,47
+00:1b:0d:aa:bb:02,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:1b:0d:cc:dd:05,device_type,voip endpoint,sip-user-agent,0.75,semi-explicit,48
+00:1b:0d:cc:dd:05,dhcp_fingerprint,1-3-6-15-42-66-150,dhcp-option55,0.75,semi-explicit,2
+00:1b:0d:cc:dd:05,hops_from_sensor,0,ttl-delta,0.5,inferred,1
+00:1b:0d:cc:dd:05,hostname,SEP001B0DCCDD05,dhcp-hostname,0.95,self-declared,2
+00:1b:0d:cc:dd:05,ip_stack_raw,"ttl=64,df=1,ipid=incrementing",ip-header,0.75,semi-explicit,1
+00:1b:0d:cc:dd:05,model,Cisco-CP8841,sip-user-agent,0.95,self-declared,48
+00:1b:0d:cc:dd:05,os,embedded Linux / RTOS,ip-header-exact,0.3,weak,1
+00:1b:0d:cc:dd:05,role,sip endpoint,port-5060/client,0.5,inferred,1
+00:1b:0d:cc:dd:05,software,Cisco-CP8841/12.5.1,sip-user-agent,0.95,self-declared,48
+00:1b:0d:cc:dd:05,vendor,Cisco,oui-registry,0.75,semi-explicit,58
+00:1b:0d:cc:dd:05,vendor,Cisco,sip-user-agent,0.75,semi-explicit,48
+00:1b:0d:cc:dd:05,vendor_class,Cisco Systems,dhcp-vendor-class,0.75,semi-explicit,2
+00:1b:0d:cc:dd:05,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:1b:1b:00:00:99,vendor,Siemens,oui-registry,0.75,semi-explicit,4
+00:1b:1b:00:00:99,zone,clinical,vlan-30-protocol-mix,0.5,inferred,1
+00:1b:1b:11:22:05,application,MONITOR-ICU-05,hl7-msh-sending-application,0.95,self-declared,484
+00:1b:1b:11:22:05,application,SEND,hl7-msh-receiving-application,0.95,self-declared,484
+00:1b:1b:11:22:05,behaviour,"deterministic poller (~2.00s, cv=0.012)",timing/port-2575,0.5,inferred,1
+00:1b:1b:11:22:05,device_type,patient monitor,snmp-sysdescr,0.95,self-declared,24
+00:1b:1b:11:22:05,device_type_hint,embedded device,tcp-stack-exact/syn,0.3,weak,7200
+00:1b:1b:11:22:05,facility,HOSP,hl7-msh-sending-facility,0.95,self-declared,484
+00:1b:1b:11:22:05,hops_from_sensor,0,ttl-delta,0.5,inferred,7201
+00:1b:1b:11:22:05,hostname,MON-ICU-05,snmp-sysname,0.95,self-declared,24
+00:1b:1b:11:22:05,ip_stack_raw,"ttl=64,df=1,ipid=incrementing",ip-header,0.75,semi-explicit,1
+00:1b:1b:11:22:05,location,ICU Bay 5,snmp-syslocation,0.95,self-declared,24
+00:1b:1b:11:22:05,os,Embedded RTOS,tcp-stack-exact/syn,0.5,inferred,7200
+00:1b:1b:11:22:05,os,Linux,snmp-sysdescr,0.95,self-declared,24
+00:1b:1b:11:22:05,os,embedded Linux / RTOS,ip-header-exact,0.3,weak,1
+00:1b:1b:11:22:05,role,hl7 sender,port-2575/client,0.5,inferred,1
+00:1b:1b:11:22:05,role,snmp agent,port-161/server,0.5,inferred,1
+00:1b:1b:11:22:05,role_hint,cyclic master / telemetry source,timing/port-2575,0.3,weak,1
+00:1b:1b:11:22:05,service,snmp,port-161/server,0.5,inferred,1
+00:1b:1b:11:22:05,software,"Siemens Healthineers patient monitor, embedded Linux, SW 3.2.1",snmp-sysdescr,0.95,self-declared,24
+00:1b:1b:11:22:05,stack_raw,"ttl=64,win=8192,ws=None,ts=0,sack=1",tcp-stack/syn,0.75,semi-explicit,7200
+00:1b:1b:11:22:05,vendor,Siemens,oui-registry,0.75,semi-explicit,43228
+00:1b:1b:11:22:05,vendor,Siemens,snmp-sysdescr,0.75,semi-explicit,24
+00:1b:1b:11:22:05,zone,clinical,vlan-30-protocol-mix,0.5,inferred,1
+00:1b:1b:cc:dd:01,ae_title,CT-01,dicom-calling-ae,0.95,self-declared,48
+00:1b:1b:cc:dd:01,ae_title,PACS01,dicom-called-ae,0.95,self-declared,48
+00:1b:1b:cc:dd:01,device_type,imaging modality,dicom-calling-ae,0.75,semi-explicit,48
+00:1b:1b:cc:dd:01,device_type,pacs / image archive,dicom-called-ae,0.75,semi-explicit,48
+00:1b:1b:cc:dd:01,device_type_hint,appliance,tcp-stack-exact/syn,0.3,weak,56
+00:1b:1b:cc:dd:01,hops_from_sensor,0,ttl-delta,0.5,inferred,56
+00:1b:1b:cc:dd:01,os,Embedded Linux,tcp-stack-exact/syn,0.5,inferred,56
+00:1b:1b:cc:dd:01,role,imaging modality,port-11112/client,0.5,inferred,1
+00:1b:1b:cc:dd:01,stack_raw,"ttl=64,win=5840,ws=2,ts=1,sack=1",tcp-stack/syn,0.75,semi-explicit,56
+00:1b:1b:cc:dd:01,vendor,Siemens,oui-registry,0.75,semi-explicit,344
+00:1b:1b:cc:dd:01,zone,clinical,vlan-20-protocol-mix,0.5,inferred,1
+00:1b:1b:ee:ff:03,application,MONITOR-ICU-03,hl7-msh-sending-application,0.95,self-declared,484
+00:1b:1b:ee:ff:03,application,SEND,hl7-msh-receiving-application,0.95,self-declared,484
+00:1b:1b:ee:ff:03,behaviour,"deterministic poller (~2.00s, cv=0.012)",timing/port-2575,0.5,inferred,1
+00:1b:1b:ee:ff:03,device_type_hint,embedded device,tcp-stack-exact/syn,0.3,weak,7200
+00:1b:1b:ee:ff:03,facility,HOSP,hl7-msh-sending-facility,0.95,self-declared,484
+00:1b:1b:ee:ff:03,hops_from_sensor,0,ttl-delta,0.5,inferred,7200
+00:1b:1b:ee:ff:03,os,Embedded RTOS,tcp-stack-exact/syn,0.5,inferred,7200
+00:1b:1b:ee:ff:03,role,hl7 sender,port-2575/client,0.5,inferred,1
+00:1b:1b:ee:ff:03,role_hint,cyclic master / telemetry source,timing/port-2575,0.3,weak,1
+00:1b:1b:ee:ff:03,stack_raw,"ttl=64,win=8192,ws=None,ts=0,sack=1",tcp-stack/syn,0.75,semi-explicit,7200
+00:1b:1b:ee:ff:03,vendor,Siemens,oui-registry,0.75,semi-explicit,43204
+00:1b:1b:ee:ff:03,zone,clinical,vlan-30-protocol-mix,0.5,inferred,1
+00:1b:1b:ee:ff:04,application,MONITOR-ICU-04,hl7-msh-sending-application,0.95,self-declared,484
+00:1b:1b:ee:ff:04,application,SEND,hl7-msh-receiving-application,0.95,self-declared,484
+00:1b:1b:ee:ff:04,behaviour,"deterministic poller (~2.00s, cv=0.012)",timing/port-2575,0.5,inferred,1
+00:1b:1b:ee:ff:04,device_type_hint,embedded device,tcp-stack-exact/syn,0.3,weak,7200
+00:1b:1b:ee:ff:04,facility,HOSP,hl7-msh-sending-facility,0.95,self-declared,484
+00:1b:1b:ee:ff:04,hops_from_sensor,0,ttl-delta,0.5,inferred,7200
+00:1b:1b:ee:ff:04,os,Embedded RTOS,tcp-stack-exact/syn,0.5,inferred,7200
+00:1b:1b:ee:ff:04,role,hl7 sender,port-2575/client,0.5,inferred,1
+00:1b:1b:ee:ff:04,role_hint,cyclic master / telemetry source,timing/port-2575,0.3,weak,1
+00:1b:1b:ee:ff:04,stack_raw,"ttl=64,win=8192,ws=None,ts=0,sack=1",tcp-stack/syn,0.75,semi-explicit,7200
+00:1b:1b:ee:ff:04,vendor,Siemens,oui-registry,0.75,semi-explicit,43204
+00:1b:1b:ee:ff:04,zone,clinical,vlan-30-protocol-mix,0.5,inferred,1
+00:1b:78:11:22:01,behaviour,"deterministic poller (~903.51s, cv=0.019)",timing/port-389,0.5,inferred,1
+00:1b:78:11:22:01,device_type_hint,server,tcp-stack-exact/syn,0.3,weak,16
+00:1b:78:11:22:01,device_type_hint,server,tcp-stack-exact/syn-ack,0.3,weak,112
+00:1b:78:11:22:01,domain,hospital.local,ldap-bind-dn,0.95,self-declared,16
+00:1b:78:11:22:01,hops_from_sensor,0,ttl-delta,0.5,inferred,129
+00:1b:78:11:22:01,hostname,DC01,ldap-bind-dn,0.95,self-declared,16
+00:1b:78:11:22:01,ip_stack_raw,"ttl=128,df=1,ipid=random",ip-header,0.75,semi-explicit,1
+00:1b:78:11:22:01,os,Windows Server,tcp-stack-exact/syn,0.5,inferred,16
+00:1b:78:11:22:01,os,Windows Server,tcp-stack-exact/syn-ack,0.5,inferred,112
+00:1b:78:11:22:01,os,Windows family,ip-header-exact,0.3,weak,1
+00:1b:78:11:22:01,role,directory server,port-389/server,0.5,inferred,1
+00:1b:78:11:22:01,role,dns server,port-53/server,0.5,inferred,1
+00:1b:78:11:22:01,role,file / domain server,port-445/server,0.5,inferred,1
+00:1b:78:11:22:01,role,time server,port-123/server,0.5,inferred,1
+00:1b:78:11:22:01,role_hint,cyclic master / telemetry source,timing/port-389,0.3,weak,1
+00:1b:78:11:22:01,service,dns,port-53/server,0.5,inferred,1
+00:1b:78:11:22:01,service,ldap,port-389/server,0.5,inferred,1
+00:1b:78:11:22:01,service,ntp,port-123/server,0.5,inferred,1
+00:1b:78:11:22:01,service,smb,port-445/server,0.5,inferred,1
+00:1b:78:11:22:01,smb_dialect,0x0210,smb2,0.75,semi-explicit,48
+00:1b:78:11:22:01,stack_raw,"ttl=128,win=65535,ws=8,ts=0,sack=1",tcp-stack/syn,0.75,semi-explicit,16
+00:1b:78:11:22:01,stack_raw,"ttl=128,win=65535,ws=8,ts=0,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,112
+00:1b:78:11:22:01,vendor,HewlettPacka,oui-registry,0.75,semi-explicit,1273
+00:1b:78:11:22:01,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:1b:78:11:22:02,behaviour,"deterministic poller (~901.89s, cv=0.020)",timing/port-389,0.5,inferred,1
+00:1b:78:11:22:02,device_type_hint,server,tcp-stack-exact/syn,0.3,weak,16
+00:1b:78:11:22:02,device_type_hint,server,tcp-stack-exact/syn-ack,0.3,weak,16
+00:1b:78:11:22:02,domain,hospital.local,ldap-bind-dn,0.95,self-declared,16
+00:1b:78:11:22:02,hops_from_sensor,0,ttl-delta,0.5,inferred,32
+00:1b:78:11:22:02,hostname,DC02,ldap-bind-dn,0.95,self-declared,16
+00:1b:78:11:22:02,os,Windows Server,tcp-stack-exact/syn,0.5,inferred,16
+00:1b:78:11:22:02,os,Windows Server,tcp-stack-exact/syn-ack,0.5,inferred,16
+00:1b:78:11:22:02,role,directory server,port-389/server,0.5,inferred,1
+00:1b:78:11:22:02,role_hint,cyclic master / telemetry source,timing/port-389,0.3,weak,1
+00:1b:78:11:22:02,service,ldap,port-389/server,0.5,inferred,1
+00:1b:78:11:22:02,stack_raw,"ttl=128,win=65535,ws=8,ts=0,sack=1",tcp-stack/syn,0.75,semi-explicit,16
+00:1b:78:11:22:02,stack_raw,"ttl=128,win=65535,ws=8,ts=0,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,16
+00:1b:78:11:22:02,vendor,HewlettPacka,oui-registry,0.75,semi-explicit,159
+00:1b:78:11:22:02,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:1b:78:aa:bb:02,device_type,printer,ipp-attributes,0.95,self-declared,16
+00:1b:78:aa:bb:02,device_type_hint,printer,tcp-stack-exact/syn-ack,0.3,weak,16
+00:1b:78:aa:bb:02,hops_from_sensor,0,ttl-delta,0.5,inferred,16
+00:1b:78:aa:bb:02,hostname,HPLJ-WARD2,mdns,0.95,self-declared,120
+00:1b:78:aa:bb:02,model,HP LaserJet Enterprise M507dn,ipp-attributes,0.95,self-declared,16
+00:1b:78:aa:bb:02,os,Printer firmware,tcp-stack-exact/syn-ack,0.5,inferred,16
+00:1b:78:aa:bb:02,role,printer,port-631/server,0.5,inferred,1
+00:1b:78:aa:bb:02,service,ipp,port-631/server,0.5,inferred,1
+00:1b:78:aa:bb:02,stack_raw,"ttl=64,win=16384,ws=0,ts=0,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,16
+00:1b:78:aa:bb:02,vendor,HP,ipp-attributes,0.95,self-declared,16
+00:1b:78:aa:bb:02,vendor,HewlettPacka,oui-registry,0.75,semi-explicit,176
+00:1b:78:aa:bb:02,zone,it,vlan-10-protocol-mix,0.5,inferred,1
+00:40:8c:dd:ee:04,device_type,camera / video source,rtsp-banner,0.95,self-declared,120
+00:40:8c:dd:ee:04,device_type_hint,appliance,tcp-stack-exact/syn-ack,0.3,weak,120
+00:40:8c:dd:ee:04,hops_from_sensor,0,ttl-delta,0.5,inferred,120
+00:40:8c:dd:ee:04,hostname,AXIS-CORR-04,mdns,0.95,self-declared,240
+00:40:8c:dd:ee:04,os,Embedded Linux,tcp-stack-exact/syn-ack,0.5,inferred,120
+00:40:8c:dd:ee:04,role,camera / video source,port-554/server,0.5,inferred,1
+00:40:8c:dd:ee:04,service,rtsp,port-554/server,0.5,inferred,1
+00:40:8c:dd:ee:04,software,GStreamer RTSP server/1.22 (AXIS),rtsp-banner,0.95,self-declared,120
+00:40:8c:dd:ee:04,stack_raw,"ttl=64,win=5840,ws=2,ts=1,sack=1",tcp-stack/syn-ack,0.75,semi-explicit,120
+00:40:8c:dd:ee:04,vendor,AxisCommunic,oui-registry,0.75,semi-explicit,608
+00:40:8c:dd:ee:04,zone,iot,vlan-50-protocol-mix,0.5,inferred,1
+00:80:f4:12:34:01,hops_from_sensor,0,ttl-delta,0.5,inferred,1
+00:80:f4:12:34:01,ip_stack_raw,"ttl=64,df=1,ipid=zero",ip-header,0.75,semi-explicit,1
+00:80:f4:12:34:01,os,Linux (modern kernel),ip-header-exact,0.3,weak,1
+00:80:f4:12:34:01,role,bacnet device,port-47808/server,0.5,inferred,1
+00:80:f4:12:34:01,service,bacnet,port-47808/server,0.5,inferred,1
+00:80:f4:12:34:01,vendor,Telemecaniqu,oui-registry,0.75,semi-explicit,36
+00:80:f4:12:34:01,zone,ot,vlan-40-protocol-mix,0.5,inferred,1
+00:80:f4:56:78:02,bacnet_instance,22002,bacnet-iam,0.95,self-declared,24
+00:80:f4:56:78:02,device_type,bacnet controller,bacnet-iam,0.95,self-declared,24
+00:80:f4:56:78:02,hops_from_sensor,0,ttl-delta,0.5,inferred,1
+00:80:f4:56:78:02,ip_stack_raw,"ttl=255,df=0,ipid=incrementing",ip-header,0.75,semi-explicit,1
+00:80:f4:56:78:02,os,embedded / industrial stack,ttl255+self-declared-device-class,0.3,weak,1
+00:80:f4:56:78:02,role,bacnet device,port-47808/server,0.5,inferred,1
+00:80:f4:56:78:02,service,bacnet,port-47808/server,0.5,inferred,1
+00:80:f4:56:78:02,vendor,Schneider Electric,bacnet-vendor-id,0.95,self-declared,24
+00:80:f4:56:78:02,vendor,Telemecaniqu,oui-registry,0.75,semi-explicit,28
+00:80:f4:56:78:02,vendor_id_raw,10,bacnet-iam,0.95,self-declared,24
+00:80:f4:56:78:02,zone,ot,vlan-40-protocol-mix,0.5,inferred,1
+00:80:f4:99:88:03,device_type_hint,plc,tcp-stack-exact/syn-ack,0.3,weak,14400
+00:80:f4:99:88:03,hops_from_sensor,0,ttl-delta,0.5,inferred,14400
+00:80:f4:99:88:03,os,VxWorks / industrial stack,tcp-stack-exact/syn-ack,0.5,inferred,14400
+00:80:f4:99:88:03,role,plc / modbus outstation,port-502/server,0.5,inferred,1
+00:80:f4:99:88:03,service,modbus,port-502/server,0.5,inferred,1
+00:80:f4:99:88:03,stack_raw,"ttl=255,win=4096,ws=None,ts=0,sack=0",tcp-stack/syn-ack,0.75,semi-explicit,14400
+00:80:f4:99:88:03,vendor,Telemecaniqu,oui-registry,0.75,semi-explicit,43204
+00:80:f4:99:88:03,zone,ot,vlan-40-protocol-mix,0.5,inferred,1
