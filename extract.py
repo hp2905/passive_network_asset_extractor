@@ -19,14 +19,19 @@ EVIDENCE TIERS (higher wins when values conflict)
                              RTSP Server banner, DHCP hostname, LDAP bind DN
     T2 0.75  SEMI-EXPLICIT   OUI vendor, DHCP option-55, HTTP Server header,
                              raw stack signature
-    T3 0.50  INFERRED        TCP stack signature -> OS, service direction -> role
-    T4 0.30  WEAK            IP-header-only OS, timing regularity, VLAN zone
+    T3 0.50  INFERRED        specific p0f signature -> OS, service direction
+                             -> role, protocol mix -> zone
+    T4 0.30  WEAK            generic p0f signature or rule, timing
+                             regularity
+    T5 0.20  FAMILY          operating system family from the initial TTL,
+                             with option presence at most
 
 KNOWN LIMITS
-  * The signature tables (STACK_SIGS, IP_SIGS) cover a limited set of stacks.
-    A host whose signature is not listed receives a family-level label instead
-    of an exact one. The raw signature is recorded in every case, so an
-    unmatched host remains a resolvable lead rather than a dead end.
+  * The TCP signature tables are transcribed from the p0f 3.09b database,
+    which dates from 2016. Systems released since then are covered by a small
+    number of documented rules and otherwise receive a family-level label.
+    The raw signature is recorded in every case, so an unmatched host remains
+    a resolvable lead rather than a dead end.
   * Presence is detectable from a single frame, but identity requires the
     device to transmit something carrying an IP header. Hosts observed only
     via ARP yield vendor and VLAN, never an operating system. This is a
@@ -39,79 +44,208 @@ import argparse
 import binascii
 import os
 import csv
+import json
 import re
 import statistics
 import subprocess
 import sys
 from collections import defaultdict
 
-T1, T2, T3, T4 = 0.95, 0.75, 0.50, 0.30
-TIER_NAME = {T1: "self-declared", T2: "semi-explicit", T3: "inferred", T4: "weak"}
+T1, T2, T3, T4, T5 = 0.95, 0.75, 0.50, 0.30, 0.20
+TIER_NAME = {T1: "self-declared", T2: "semi-explicit", T3: "inferred",
+             T4: "weak", T5: "family"}
 
 # ---------------------------------------------------------------------------
-# TCP stack signatures: (initial_ttl, window, wscale, has_ts, has_sack)
-# wscale None = option absent. Includes a small set of OT and embedded stacks,
-# which fingerprinters aimed at IT networks typically omit.
+# TCP stack signatures
+#
+# Transcribed programmatically from the p0f 3.09b signature database (p0f.fp,
+# sections [tcp:request] and [tcp:response]). Each key is
+#     (initial_ttl, window, window_scale, option_layout)
+# where window is an absolute value or "mss*N", meaning N times the maximum
+# segment size advertised in the same packet, and window_scale is an integer
+# or "*" for p0f's generic signatures, which accept any scale. A missing window
+# scale option is recorded as scale 0, as p0f does; the layout shows whether
+# the option was present. The layout lists option kinds in wire order using
+# p0f's names: mss, nop, ws (window scale), sok (SACK permitted), sack, ts
+# (timestamps), and eol+N (end of options followed by N padding bytes).
+#
+# Excluded from the transcription: scanners and p0f's own tools, named web
+# crawlers, loopback-only signatures, games consoles, and platforms unlikely on
+# current networks (Linux 2.0 and 2.2, NeXTSTEP, OpenVMS, Tru64). Two SYN-ACK
+# signatures are shared by FreeBSD and Mac OS X in p0f itself and carry both
+# names. The database dates from 2016 and has no entries for Windows 10 or
+# later or for Linux after the 3.x series; _stack_rule() covers those.
+#
+# Value: (label, generic). p0f's specific signatures are filed at T3 and its
+# generic signatures at T4.
 # ---------------------------------------------------------------------------
-STACK_SIGS = {
-    (128, 64240, 8, False, True): ("Windows 10/11", "workstation"),
-    (128, 65535, 8, False, True): ("Windows Server", "server"),
-    (64, 29200, 7, True, True): ("Linux (modern kernel)", "server"),
-    (64, 5840, 2, True, True): ("Embedded Linux", "appliance"),
-    (64, 8192, None, False, True): ("Embedded RTOS", "embedded device"),
-    (255, 4096, None, False, False): ("VxWorks / industrial stack", "plc"),
-    (64, 16384, 0, False, True): ("Printer firmware", "printer"),
-    # Additional general-purpose stacks common on hospital IT segments.
-    (128, 8192, 0, False, True): ("Windows XP / Server 2003", "workstation"),
-    (128, 16384, 0, False, True): ("Windows XP / Server 2003", "workstation"),
-    (64, 65535, 6, True, True): ("FreeBSD / macOS family", "workstation"),
-    (64, 65535, 5, True, True): ("macOS / iOS family", "workstation"),
-    (64, 14600, 7, True, True): ("Linux (older kernel)", "server"),
-    (64, 5720, 7, True, True): ("Linux (older kernel)", "server"),
-    (64, 65535, 7, True, True): ("Linux (tuned)", "server"),
-    (64, 4380, 4, True, True): ("Android / embedded Linux", "mobile device"),
-    # Constrained embedded stacks seen on medical and building equipment.
-    (64, 2048, None, False, False): ("minimal embedded stack", "embedded device"),
-    (64, 1460, None, False, False): ("minimal embedded stack", "embedded device"),
-    (255, 8192, None, False, True): ("industrial stack", "plc"),
-    (255, 16384, None, False, True): ("industrial stack", "plc"),
-    (128, 65535, 0, False, True): ("Windows (no scaling)", "workstation"),
+P0F_SYN = {
+    (64, 65535, '*', 'mss,nop,ws,sok,ts'): ('FreeBSD', True),
+    (64, 65535, 3, 'mss,nop,ws,sok,ts'): ('FreeBSD 8.x', False),
+    (64, 65535, 6, 'mss,nop,ws,sok,ts'): ('FreeBSD 9.x or newer', False),
+    (64, 'mss*44', 1, 'mss,sok,ts,nop,ws'): ('Linux (Android)', False),
+    (64, 'mss*44', 3, 'mss,sok,ts,nop,ws'): ('Linux (Android)', False),
+    (64, 'mss*4', 0, 'mss,sok,ts,nop,ws'): ('Linux 2.4.x', False),
+    (64, 'mss*4', 1, 'mss,sok,ts,nop,ws'): ('Linux 2.4.x', False),
+    (64, 'mss*4', 2, 'mss,sok,ts,nop,ws'): ('Linux 2.4.x', False),
+    (64, 'mss*4', '*', 'mss,sok,ts,nop,ws'): ('Linux 2.4.x-2.6.x', True),
+    (64, 'mss*4', 6, 'mss,sok,ts,nop,ws'): ('Linux 2.6.x', False),
+    (64, 'mss*4', 7, 'mss,sok,ts,nop,ws'): ('Linux 2.6.x', False),
+    (64, 'mss*4', 8, 'mss,sok,ts,nop,ws'): ('Linux 2.6.x', False),
+    (64, 'mss*10', 4, 'mss,sok,ts,nop,ws'): ('Linux 3.1-3.10', False),
+    (64, 'mss*10', 5, 'mss,sok,ts,nop,ws'): ('Linux 3.1-3.10', False),
+    (64, 'mss*10', 6, 'mss,sok,ts,nop,ws'): ('Linux 3.1-3.10', False),
+    (64, 'mss*10', 7, 'mss,sok,ts,nop,ws'): ('Linux 3.1-3.10', False),
+    (64, 'mss*20', 10, 'mss,sok,ts,nop,ws'): ('Linux 3.11 and newer', False),
+    (64, 'mss*20', 7, 'mss,sok,ts,nop,ws'): ('Linux 3.11 and newer', False),
+    (64, 'mss*10', '*', 'mss,sok,ts,nop,ws'): ('Linux 3.x', True),
+    (64, 65535, '*', 'mss,nop,ws,nop,nop,ts,sok,eol+1'): ('Mac OS X', True),
+    (64, 65535, 4, 'mss,nop,ws,nop,nop,ts,sok,eol+1'): ('Mac OS X 10.9 or newer (sometimes iPhone or iPad)', False),
+    (64, 65535, 1, 'mss,nop,ws,nop,nop,ts,sok,eol+1'): ('Mac OS X 10.x', False),
+    (64, 65535, 3, 'mss,nop,ws,nop,nop,ts,sok,eol+1'): ('Mac OS X 10.x', False),
+    (64, 16384, 0, 'mss,nop,nop,sok,nop,ws,nop,nop,ts'): ('OpenBSD 3.x', False),
+    (64, 16384, 3, 'mss,nop,nop,sok,nop,ws,nop,nop,ts'): ('OpenBSD 4.x-5.x', False),
+    (64, 'mss*34', 0, 'mss,nop,ws,nop,nop,sok'): ('Solaris 10', False),
+    (64, 32850, 1, 'nop,ws,nop,nop,ts,nop,nop,sok,mss'): ('Solaris 8', False),
+    (128, 8192, 0, 'mss,nop,nop,sok'): ('Windows 7 or 8', False),
+    (128, 8192, 2, 'mss,nop,ws,nop,nop,sok'): ('Windows 7 or 8', False),
+    (128, 8192, 2, 'mss,nop,ws,sok,ts'): ('Windows 7 or 8', False),
+    (128, 8192, 8, 'mss,nop,ws,nop,nop,sok'): ('Windows 7 or 8', False),
+    (128, 16384, '*', 'mss,nop,nop,sok'): ('Windows NT kernel 5.x', True),
+    (128, 16384, '*', 'mss,nop,ws,nop,nop,sok'): ('Windows NT kernel 5.x', True),
+    (128, 65535, '*', 'mss,nop,nop,sok'): ('Windows NT kernel 5.x', True),
+    (128, 65535, '*', 'mss,nop,ws,nop,nop,sok'): ('Windows NT kernel 5.x', True),
+    (128, 8192, '*', 'mss,nop,nop,sok'): ('Windows NT kernel 6.x', True),
+    (128, 8192, '*', 'mss,nop,ws,nop,nop,sok'): ('Windows NT kernel 6.x', True),
+    (128, 16384, 0, 'mss,nop,nop,sok'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,nop,sok'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,ws,nop,nop,sok'): ('Windows XP', False),
+    (128, 65535, 1, 'mss,nop,ws,nop,nop,sok'): ('Windows XP', False),
+    (128, 65535, 2, 'mss,nop,ws,nop,nop,sok'): ('Windows XP', False),
+    (64, 65535, 2, 'mss,nop,ws,nop,nop,ts,sok,eol+1'): ('iOS iPhone or iPad', False),
+}
+P0F_SYNACK = {
+    (64, 65535, 3, 'mss,nop,ws'): ('FreeBSD 8.x', False),
+    (64, 65535, 3, 'mss,nop,ws,nop,nop,ts'): ('FreeBSD 8.x', False),
+    (64, 65535, 3, 'mss,nop,ws,sok,eol+1'): ('FreeBSD 8.x', False),
+    (64, 65535, 3, 'mss,nop,ws,sok,ts'): ('FreeBSD 8.x', False),
+    (64, 65535, 0, 'mss,sok,ts'): ('FreeBSD 8.x-9.x', False),
+    (64, 65535, 0, 'mss,nop,nop,ts'): ('FreeBSD 8.x-9.x or Mac OS X 10.x', False),
+    (64, 65535, 0, 'mss,sok,eol+1'): ('FreeBSD 8.x-9.x or Mac OS X 10.x', False),
+    (64, 65535, 6, 'mss,nop,ws'): ('FreeBSD 9.x', False),
+    (64, 65535, 6, 'mss,nop,ws,nop,nop,ts'): ('FreeBSD 9.x', False),
+    (64, 65535, 6, 'mss,nop,ws,sok,eol+1'): ('FreeBSD 9.x', False),
+    (64, 65535, 6, 'mss,nop,ws,sok,ts'): ('FreeBSD 9.x', False),
+    (64, 32768, 0, 'mss'): ('HP-UX 11.x', False),
+    (64, 32768, 0, 'mss,nop,nop,sok'): ('HP-UX 11.x', False),
+    (64, 32768, 0, 'mss,nop,nop,sok,nop,nop,ts'): ('HP-UX 11.x', False),
+    (64, 32768, 0, 'mss,nop,nop,sok,ws,nop'): ('HP-UX 11.x', False),
+    (64, 32768, 0, 'mss,nop,nop,sok,ws,nop,nop,nop,ts'): ('HP-UX 11.x', False),
+    (64, 32768, 0, 'mss,nop,nop,ts'): ('HP-UX 11.x', False),
+    (64, 32768, 0, 'mss,ws,nop'): ('HP-UX 11.x', False),
+    (64, 32768, 0, 'mss,ws,nop,nop,nop,ts'): ('HP-UX 11.x', False),
+    (64, 'mss*4', 0, 'mss'): ('Linux 2.4-2.6', False),
+    (64, 'mss*4', 0, 'mss,nop,nop,sok'): ('Linux 2.4-2.6', False),
+    (64, 'mss*4', 0, 'mss,nop,nop,ts'): ('Linux 2.4-2.6', False),
+    (64, 'mss*4', 0, 'mss,sok,ts'): ('Linux 2.4-2.6', False),
+    (64, 'mss*4', 0, 'mss,nop,nop,sok,nop,ws'): ('Linux 2.4.x', False),
+    (64, 'mss*4', 0, 'mss,nop,nop,ts,nop,ws'): ('Linux 2.4.x', False),
+    (64, 'mss*4', 0, 'mss,nop,ws'): ('Linux 2.4.x', False),
+    (64, 'mss*4', 0, 'mss,sok,ts,nop,ws'): ('Linux 2.4.x', False),
+    (64, 'mss*4', '*', 'mss,nop,nop,sok,nop,ws'): ('Linux 2.6.x', False),
+    (64, 'mss*4', '*', 'mss,nop,nop,ts,nop,ws'): ('Linux 2.6.x', False),
+    (64, 'mss*4', '*', 'mss,nop,ws'): ('Linux 2.6.x', False),
+    (64, 'mss*4', '*', 'mss,sok,ts,nop,ws'): ('Linux 2.6.x', False),
+    (64, 'mss*10', '*', 'mss,nop,nop,sok,nop,ws'): ('Linux 3.x', False),
+    (64, 'mss*10', '*', 'mss,nop,nop,ts,nop,ws'): ('Linux 3.x', False),
+    (64, 'mss*10', '*', 'mss,nop,ws'): ('Linux 3.x', False),
+    (64, 'mss*10', '*', 'mss,sok,ts,nop,ws'): ('Linux 3.x', False),
+    (64, 'mss*10', 0, 'mss'): ('Linux 3.x', False),
+    (64, 'mss*10', 0, 'mss,nop,nop,sok'): ('Linux 3.x', False),
+    (64, 'mss*10', 0, 'mss,nop,nop,ts'): ('Linux 3.x', False),
+    (64, 'mss*10', 0, 'mss,sok,ts'): ('Linux 3.x', False),
+    (64, 65535, 0, 'mss,nop,nop,ts,sok,eol+1'): ('Mac OS X 10.x', False),
+    (64, 65535, 0, 'mss,nop,ws'): ('Mac OS X 10.x', False),
+    (64, 65535, 0, 'mss,nop,ws,nop,nop,ts'): ('Mac OS X 10.x', False),
+    (64, 65535, 0, 'mss,nop,ws,nop,nop,ts,sok,eol+1'): ('Mac OS X 10.x', False),
+    (64, 65535, 0, 'mss,nop,ws,sok,eol+1'): ('Mac OS X 10.x', False),
+    (64, 'mss*37', 0, 'mss'): ('Solaris 10', False),
+    (64, 'mss*37', 0, 'mss,nop,nop,sok'): ('Solaris 10', False),
+    (64, 'mss*37', 0, 'mss,nop,ws'): ('Solaris 10', False),
+    (64, 'mss*37', 0, 'mss,nop,ws,nop,nop,sok'): ('Solaris 10', False),
+    (64, 'mss*37', 0, 'nop,nop,ts,mss'): ('Solaris 10', False),
+    (64, 'mss*37', 0, 'nop,nop,ts,mss,nop,nop,sok'): ('Solaris 10', False),
+    (64, 'mss*37', 0, 'nop,nop,ts,mss,nop,ws'): ('Solaris 10', False),
+    (64, 'mss*37', 0, 'nop,nop,ts,mss,nop,ws,nop,nop,sok'): ('Solaris 10', False),
+    (255, 'mss*7', 0, 'mss'): ('Solaris 6', False),
+    (255, 'mss*7', 0, 'nop,nop,ts,mss'): ('Solaris 6', False),
+    (255, 'mss*7', 0, 'nop,nop,ts,nop,ws,mss'): ('Solaris 6', False),
+    (255, 'mss*7', 0, 'nop,ws,mss'): ('Solaris 6', False),
+    (64, 'mss*19', 0, 'mss'): ('Solaris 8', False),
+    (64, 'mss*19', 0, 'nop,nop,sok,mss'): ('Solaris 8', False),
+    (64, 'mss*19', 0, 'nop,nop,ts,mss'): ('Solaris 8', False),
+    (64, 'mss*19', 0, 'nop,nop,ts,nop,nop,sok,mss'): ('Solaris 8', False),
+    (64, 'mss*19', 0, 'nop,nop,ts,nop,ws,mss'): ('Solaris 8', False),
+    (64, 'mss*19', 0, 'nop,nop,ts,nop,ws,nop,nop,sok,mss'): ('Solaris 8', False),
+    (64, 'mss*19', 0, 'nop,ws,mss'): ('Solaris 8', False),
+    (64, 'mss*19', 0, 'nop,ws,nop,nop,sok,mss'): ('Solaris 8', False),
+    (128, 8192, 0, 'mss'): ('Windows 7 or 8', False),
+    (128, 8192, 0, 'mss,nop,nop,sok'): ('Windows 7 or 8', False),
+    (128, 8192, 0, 'mss,nop,nop,ts'): ('Windows 7 or 8', False),
+    (128, 8192, 0, 'mss,sok,ts'): ('Windows 7 or 8', False),
+    (128, 8192, 8, 'mss,nop,ws'): ('Windows 7 or 8', False),
+    (128, 8192, 8, 'mss,nop,ws,nop,nop,sok'): ('Windows 7 or 8', False),
+    (128, 8192, 8, 'mss,nop,ws,nop,nop,ts'): ('Windows 7 or 8', False),
+    (128, 8192, 8, 'mss,nop,ws,sok,ts'): ('Windows 7 or 8', False),
+    (128, 16384, 0, 'mss'): ('Windows XP', False),
+    (128, 16384, 0, 'mss,nop,nop,sok'): ('Windows XP', False),
+    (128, 16384, 0, 'mss,nop,nop,ts'): ('Windows XP', False),
+    (128, 16384, 0, 'mss,nop,nop,ts,nop,nop,sok'): ('Windows XP', False),
+    (128, 16384, 0, 'mss,nop,ws'): ('Windows XP', False),
+    (128, 16384, 0, 'mss,nop,ws,nop,nop,sok'): ('Windows XP', False),
+    (128, 16384, 0, 'mss,nop,ws,nop,nop,ts'): ('Windows XP', False),
+    (128, 16384, 0, 'mss,nop,ws,nop,nop,ts,nop,nop,sok'): ('Windows XP', False),
+    (128, 65535, 0, 'mss'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,nop,sok'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,nop,ts'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,nop,ts,nop,nop,sok'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,ws'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,ws,nop,nop,sok'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,ws,nop,nop,ts'): ('Windows XP', False),
+    (128, 65535, 0, 'mss,nop,ws,nop,nop,ts,nop,nop,sok'): ('Windows XP', False),
 }
 
-# ---------------------------------------------------------------------------
-# IP-header-only signatures: (initial_ttl, df_set, ip_id_mode)
-#
-# Three features rather than six, so these are filed at T4 and a TCP signature
-# always outranks them. Their value lies in covering UDP-only equipment such as
-# BACnet controllers, SNMP agents and syslog senders, which TCP fingerprinting
-# cannot reach at all.
-#
-# TTL 255 is deliberately absent from this table. It is the default for
-# industrial stacks and for Solaris and AIX alike, so it maps to an explicitly
-# ambiguous label that refine_ambiguous() narrows only where independent
-# evidence supports a verdict.
-# ---------------------------------------------------------------------------
-IP_SIGS = {
-    (64, True, "zero"): "Linux (modern kernel)",
-    (64, True, "incrementing"): "embedded Linux / RTOS",
-    (64, False, "incrementing"): "embedded / minimal stack",
-    (128, True, "incrementing"): "Windows family",
-    (128, True, "random"): "Windows family",
-}
+LINUX_SYN_LAYOUT = "mss,sok,ts,nop,ws"
+WINDOWS_SYN_LAYOUT = "mss,nop,ws,nop,nop,sok"
 
-# Row caps for passes that read payloads or repeated announcements. Identity
-# strings do not vary between messages from the same host, so a sample is as
-# informative as the full set at a fraction of the cost. Raised with
-# --sample-limit when a capture is expected to contain rare late-appearing
-# values.
-# Ports at or above this value are treated as ephemeral. Connections to them
-# are not evidence of an offered service.
+# Initial TTL values are the defaults of nearly all IP stacks: 64 for Linux,
+# the BSDs and macOS, 128 for Windows, 255 for Cisco IOS and legacy Solaris,
+# and 32 for early Windows. Stacks using 60 or 30 round into 64 and 32.
+TTL_BASES = (32, 64, 128, 255)
+
+# An initial TTL of 255 does not identify an operating system on its own. It
+# is used mainly by network equipment, by legacy Unix, and by some embedded
+# stacks. refine_ambiguous() narrows this label only where other evidence
+# supports a verdict.
+AMBIGUOUS_TTL255 = "TTL-255 stack (network equipment, legacy Unix or embedded)"
+
+# Ports at or above this value, when absent from PORT_ROLES, are treated as
+# ephemeral. It is the start of the Linux default ephemeral range, and lies
+# below the RFC 6335 dynamic range (49152-65535), so it covers both.
 EPHEMERAL_PORT_FLOOR = 32768
 
-PAYLOAD_SAMPLE_LIMIT = 3000
-ANNOUNCEMENT_SAMPLE_LIMIT = 2000
+# Maximum rows read per source in passes that read payloads or repeated
+# announcements. A host states the same identity in every such message, so a
+# sample per source establishes it; capping per source rather than per pass
+# ensures a quiet host is not crowded out by busy ones.
+PER_SOURCE_SAMPLE_LIMIT = 100
 
-AMBIGUOUS_TTL255 = "TTL-255 stack (industrial OR Solaris/AIX)"
+# IP identification behaviour. Steps are taken modulo 65536 so that counter
+# wraparound is not mistaken for randomness. A host whose steps are mostly
+# small and positive is recorded as increasing; the step limit allows for
+# packets the sensor did not observe between two that it did.
+IPID_MAX_STEP = 4096
+IPID_INCREASING_SHARE = 0.75
 
 # Well-known service ports -> (service, role when SERVING, role when CONSUMING)
 PORT_ROLES = {
@@ -147,9 +281,8 @@ PORT_ROLES = {
     102: ("s7comm", "s7 plc", "engineering / hmi station"),
     44818: ("ethernet-ip", "ethernet/ip device", "ethernet/ip scanner"),
     2404: ("iec104", "iec-104 outstation", "iec-104 master"),
-    1962: ("plc-generic", "plc", "plc client"),
+    1962: ("pcworx", "plc", "engineering / hmi station"),
     4840: ("opcua", "opc ua server", "opc ua client"),
-    18000: ("intouch", "scada server", "scada client"),
     3671: ("knx", "knx gateway", "knx client"),
     1911: ("niagara-fox", "building controller", "building workstation"),
     1433: ("mssql", "database server", "database client"),
@@ -163,7 +296,6 @@ PORT_ROLES = {
     111: ("rpcbind", "rpc server", "rpc client"),
     5355: ("llmnr", "llmnr responder", "llmnr responder"),
     67: ("dhcp", "dhcp server", "dhcp client"),
-    68: ("dhcp", "dhcp client", "dhcp client"),
     69: ("tftp", "tftp server", "tftp client"),
     515: ("lpd", "printer", "print client"),
     8080: ("http-alt", "web server", "web client"),
@@ -173,22 +305,19 @@ PORT_ROLES = {
     3268: ("global-catalog", "domain controller", "domain member"),
     5985: ("winrm", "windows management endpoint", "management station"),
     5986: ("winrms", "windows management endpoint", "management station"),
-    11111: ("dicom-alt", "pacs / image archive", "imaging modality"),
-    2762: ("hl7-tls", "hl7 receiver", "hl7 sender"),
-    4242: ("vitals-telemetry", "telemetry collector", "bedside device"),
+    2762: ("dicom-tls", "pacs / image archive", "imaging modality"),
 }
 
 # UDP ports where both ends legitimately use the same port (peer protocols).
 # Sending to one of these does not indicate a client, and receiving on one does
 # not indicate a server; both parties are peers.
-UDP_PEER_PORTS = {47808, 5353, 5355, 137, 138, 123, 67, 68}
+UDP_PEER_PORTS = {47808, 5353, 137, 138, 123}
 
 # Service markers that identify a network zone
 ZONE_HINTS = {
     "ot": {"modbus", "bacnet", "dnp3", "s7comm", "ethernet-ip", "iec104",
-           "opcua", "knx", "niagara-fox", "plc-generic", "intouch"},
-    "clinical": {"dicom", "dicom-alt", "hl7-mllp", "hl7-tls",
-                 "vitals-telemetry"},
+           "opcua", "knx", "niagara-fox", "pcworx"},
+    "clinical": {"dicom", "dicom-tls", "hl7-mllp"},
     "it": {"ldap", "ldaps", "smb", "kerberos", "dns", "netbios-ssn",
            "global-catalog", "winrm", "winrms", "mssql", "rdp"},
     "iot": {"mqtt", "rtsp", "ssdp", "sip"},
@@ -197,6 +326,8 @@ ZONE_HINTS = {
 # DNS-SD / mDNS service types mapped to the device class that advertises them.
 # A service advertisement is a strong indicator of function: a host offering
 # _ipp._tcp is a print service, whether or not it is a dedicated printer.
+# Generic services such as _http are recorded without a device class, since
+# almost any device with a web interface advertises them.
 MDNS_SERVICE_TYPES = {
     "_ipp": ("printer", "print service"),
     "_ipps": ("printer", "print service"),
@@ -214,8 +345,8 @@ MDNS_SERVICE_TYPES = {
     "_smb": ("server", "file share"),
     "_afpovertcp": ("server", "file share"),
     "_nfs": ("server", "file share"),
-    "_http": ("network appliance", "web interface"),
-    "_https": ("network appliance", "web interface"),
+    "_http": (None, "web interface"),
+    "_https": (None, "web interface"),
     "_workstation": ("workstation", "workstation"),
     "_device-info": ("network appliance", "device info"),
     "_hap": ("iot device", "home automation"),
@@ -225,9 +356,9 @@ MDNS_SERVICE_TYPES = {
     "_ptp": ("time source", "precision time"),
 }
 
-# Substrings that identify a device class from a free-text banner or
-# description string. Matching is case-insensitive and first-match-wins, so
-# more specific entries are listed before more general ones.
+# Terms that identify a device class from a free-text banner or description.
+# Matching is case-insensitive, must begin at a word boundary (see _mentions),
+# and is first-match-wins, so more specific entries precede general ones.
 BANNER_DEVICE_HINTS = [
     ("patient monitor", "patient monitor"),
     ("infusion", "infusion pump"),
@@ -265,6 +396,7 @@ BANNER_DEVICE_HINTS = [
     ("phone", "voip endpoint"),
     ("smart-tv", "media device"),
     ("smart tv", "media device"),
+    ("smarttv", "media device"),
     ("television", "media device"),
 ]
 
@@ -325,31 +457,62 @@ SSH_OS_HINTS = [
     ("sun_ssh", "Solaris"),
     ("dropbear", "embedded Linux"),
     ("cisco", "Cisco IOS"),
-    ("mikrotik", "RouterOS"),
+    ("rosssh", "RouterOS"),
     ("windows", "Windows"),
 ]
 
-# Services that corroborate an industrial (rather than Unix) TTL-255 stack
-OT_SERVICES = {"modbus", "bacnet", "dnp3"}
-UNIX_SERVICES = {"ssh", "ldap", "smb", "dns", "syslog"}
 
 
 # ---------------------------------------------------------------------------
 def first(val):
-    """tshark emits comma-separated values when a field repeats in one frame
-    (tunnels, multiple IP layers). Take the first occurrence."""
+    """tshark joins repeated occurrences of a field with commas (tunnels,
+    multiple IP layers). Take the first occurrence."""
     return val.split(",")[0] if val else ""
+
+
+TSHARK_MISSING = ("ERROR: tshark not found. Install Wireshark, which provides "
+                  "tshark, and make sure its directory is on PATH. "
+                  "See README.md.")
+
+
+def _finish(proc):
+    """Stop and reap a tshark process started by tsh() or tsh_json().
+
+    Closing the output pipe stops tshark by way of SIGPIPE on its next write.
+    Signalling it directly is attempted only as a fallback and is allowed to
+    fail, because a confined tshark may be refused signals from this process.
+    Returns whatever tshark wrote to standard error.
+    """
+    try:
+        proc.stdout.close()
+    except Exception:                                 # noqa: BLE001
+        pass
+    if proc.poll() is None:
+        try:
+            proc.terminate()
+        except (PermissionError, ProcessLookupError, OSError):
+            pass
+    err = ""
+    try:
+        err = proc.stderr.read() or ""
+        proc.stderr.close()
+    except Exception:                                 # noqa: BLE001
+        pass
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        try:
+            proc.kill()
+        except (PermissionError, ProcessLookupError, OSError):
+            pass
+    return err
 
 
 def tsh(pcap, fields, dfilter=None, limit=None):
     """One tshark field-extraction pass; yields padded row lists.
 
-    `limit` caps the number of rows consumed and terminates tshark early. It is
-    intended for passes that read packet payloads, where the volume of data is
-    large but the information sought is static: a host states the same
-    application name in every message it sends, so a sample establishes it as
-    well as the full set would. Passes that must see every packet, such as
-    inventory and timing, leave the limit unset.
+    `limit`, when given, stops reading after that many rows. Passes that sample
+    per source use SourceCap instead, which never ends a pass early.
     """
     cmd = ["tshark", "-r", pcap, "-T", "fields", "-E", "separator=\t"]
     if dfilter:
@@ -362,7 +525,7 @@ def tsh(pcap, fields, dfilter=None, limit=None):
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, bufsize=1)
     except FileNotFoundError:
-        sys.exit("ERROR: tshark not found.  sudo apt install tshark")
+        sys.exit(TSHARK_MISSING)
 
     produced = 0
     try:
@@ -373,43 +536,105 @@ def tsh(pcap, fields, dfilter=None, limit=None):
             yield (row + [""] * n)[:n]
             produced += 1
             if limit is not None and produced >= limit:
-                # Stop by closing the pipe rather than by signalling tshark.
-                # Closing stdout causes it to receive SIGPIPE on its next
-                # write and exit. Signalling it directly can be refused where
-                # tshark runs under a confinement policy that mediates
-                # signals, which would abort the pass instead of ending it.
                 break
     finally:
-        # Closing the pipe stops tshark by way of SIGPIPE on its next write.
-        # This is preferred over signalling the process directly, because
-        # tshark may run with elevated privileges, in which case an unprivileged
-        # caller is not permitted to signal it and terminate() raises
-        # PermissionError.
-        try:
-            proc.stdout.close()
-        except Exception:                             # noqa: BLE001
-            pass
-        if proc.poll() is None:
-            try:
-                proc.terminate()
-            except (PermissionError, ProcessLookupError, OSError):
-                pass
-        err = ""
-        try:
-            err = proc.stderr.read() or ""
-            proc.stderr.close()
-        except Exception:                             # noqa: BLE001
-            pass
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            try:
-                proc.kill()
-            except (PermissionError, ProcessLookupError, OSError):
-                pass
+        err = _finish(proc)
         if produced == 0 and proc.returncode not in (0, None) and err.strip():
             print(f"  ! tshark pass failed ({fields[:2]}...): "
                   f"{err.strip()[:300]}", file=sys.stderr)
+
+
+def _keep_duplicates(pairs):
+    """JSON object hook that keeps repeated keys, as lists of values.
+
+    tshark emits repeated subtrees under the same key within one object. The
+    default parser keeps only the last, which silently drops data.
+    """
+    out = {}
+    for key, value in pairs:
+        out.setdefault(key, []).append(value)
+    return out
+
+
+def tsh_json(pcap, dfilter):
+    """Stream packets matching dfilter as parsed JSON protocol trees.
+
+    Field output lists each field independently, which loses the grouping of
+    values that belong together, such as an SNMP object and its value, or a
+    certificate name component and its type. The JSON output keeps the
+    protocol tree. Packets are parsed one at a time so memory stays bounded,
+    relying on tshark writing each packet as an object at two-space indent.
+    Every value in the returned objects is a list; see _keep_duplicates().
+    """
+    cmd = ["tshark", "-r", pcap, "-T", "json", "-Y", dfilter]
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True, bufsize=1)
+    except FileNotFoundError:
+        sys.exit(TSHARK_MISSING)
+    buf = None
+    try:
+        for line in proc.stdout:
+            text = line.rstrip("\n")
+            if text == "  {":
+                buf = ["{"]
+            elif buf is not None and text in ("  }", "  },"):
+                buf.append("}")
+                try:
+                    yield json.loads("\n".join(buf),
+                                     object_pairs_hook=_keep_duplicates)
+                except ValueError:
+                    pass
+                buf = None
+            elif buf is not None:
+                buf.append(text)
+    finally:
+        _finish(proc)
+
+
+def _jvalues(node, key):
+    """Every value stored under key anywhere in a parsed tree, in order."""
+    if isinstance(node, dict):
+        for k, values in node.items():
+            for v in values:
+                if k == key:
+                    yield v
+                yield from _jvalues(v, key)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _jvalues(item, key)
+
+
+def _jdicts(node, key):
+    """Every object in a parsed tree that directly contains key, in order."""
+    if isinstance(node, dict):
+        if key in node:
+            yield node
+        for values in node.values():
+            for v in values:
+                yield from _jdicts(v, key)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _jdicts(item, key)
+
+
+class SourceCap:
+    """Admit at most PER_SOURCE_SAMPLE_LIMIT rows for each key.
+
+    Used by passes that read payloads or repeated announcements. The key is
+    the sending host, or the host pair where values are attributed to both
+    ends. The limit is read when the cap is created, so --sample-limit applies.
+    """
+
+    def __init__(self):
+        self.limit = PER_SOURCE_SAMPLE_LIMIT
+        self.seen = defaultdict(int)
+
+    def take(self, key):
+        if self.seen[key] >= self.limit:
+            return False
+        self.seen[key] += 1
+        return True
 
 
 class Inventory:
@@ -502,12 +727,18 @@ class Inventory:
 def pass_inventory(pcap, inv):
     """Every frame: MAC presence, OUI vendor, VLAN, IP binding, activity span."""
     n = 0
-    for ts, mac, resolved, vlan, ip, _ttl in tsh(
+    for ts, mac, resolved, vlan, ip in tsh(
             pcap, ["frame.time_epoch", "eth.src", "eth.src_resolved",
-                   "vlan.id", "ip.src", "ip.ttl"]):
+                   "vlan.id", "ip.src"]):
         mac = first(mac).lower()
-        if not mac or mac.startswith(("01:", "33:33")) or mac == "ff:ff:ff:ff:ff:ff":
-            continue                              # multicast/broadcast is not a host
+        # IEEE 802 marks group (multicast and broadcast) addresses with the
+        # least significant bit of the first octet. A group address is never a
+        # host, and a valid frame never carries one as its source.
+        try:
+            if not mac or int(mac[:2], 16) & 1:
+                continue
+        except ValueError:
+            continue
         n += 1
         try:
             tsf = float(first(ts))
@@ -518,7 +749,10 @@ def pass_inventory(pcap, inv):
         if vlan:
             a["vlans"].add(first(vlan))
         ip = first(ip)
-        if ip:
+        # 0.0.0.0 is the "unspecified" address a DHCP client sends from before
+        # it has a lease. It belongs to no host, and mapping it would pool every
+        # DHCP client's evidence onto whichever was seen first.
+        if ip and ip != "0.0.0.0":
             a["ips"].add(ip)
             inv.ip2mac.setdefault(ip, mac)
         # OUI vendor. tshark resolves the registered organisation. Registrants
@@ -533,19 +767,29 @@ def pass_inventory(pcap, inv):
     print(f"  inventory      {n:>8} frames -> {len(inv.assets)} MACs")
 
 
+OPTION_NAMES = {1: "nop", 2: "mss", 3: "ws", 4: "sok", 5: "sack", 8: "ts"}
+
+
 def _parse_tcp_options(opt_hex):
-    """Decode the TCP options blob -> (wscale, has_timestamps, has_sack)."""
-    wscale, has_ts, has_sack = None, False, False
+    """Decode the TCP options blob.
+
+    Returns (mss, wscale, has_timestamps, has_sack, layout). The layout names
+    option kinds in wire order using p0f's vocabulary so that it can be
+    compared with P0F_SYN and P0F_SYNACK keys.
+    """
+    mss, wscale, has_ts, has_sack, layout = None, None, False, False, []
     try:
         b = binascii.unhexlify(first(opt_hex).replace(":", ""))
     except (binascii.Error, ValueError, TypeError):
-        return wscale, has_ts, has_sack
+        return mss, wscale, has_ts, has_sack, ""
     i = 0
     while i < len(b):
         kind = b[i]
         if kind == 0:
+            layout.append(f"eol+{len(b) - i - 1}")
             break
         if kind == 1:
+            layout.append("nop")
             i += 1
             continue
         if i + 1 >= len(b):
@@ -553,21 +797,69 @@ def _parse_tcp_options(opt_hex):
         ln = b[i + 1]
         if ln < 2:
             break
-        if kind == 3 and i + 2 < len(b):
+        layout.append(OPTION_NAMES.get(kind, f"?{kind}"))
+        if kind == 2 and i + 3 < len(b):
+            mss = (b[i + 2] << 8) | b[i + 3]
+        elif kind == 3 and i + 2 < len(b):
             wscale = b[i + 2]
         elif kind == 8:
             has_ts = True
         elif kind == 4:
             has_sack = True
         i += ln
-    return wscale, has_ts, has_sack
+    return mss, wscale, has_ts, has_sack, ",".join(layout)
 
 
 def _initial_ttl(ttl):
-    for base in (32, 64, 128, 255):
+    """Round an observed TTL up to the nearest common initial value."""
+    for base in TTL_BASES:
         if ttl <= base:
             return base
     return 255
+
+
+def _lookup_stack(table, ittl, win, mss, scale, layout, wildcard=False):
+    """Find a p0f signature for a handshake packet.
+
+    Tries the absolute window, then the window as a multiple of the packet's
+    own MSS. With wildcard=False only signatures naming this exact scale are
+    considered; with wildcard=True only p0f's generic signatures, which accept
+    any scale. Returns (label, tier, kind) or None.
+    """
+    windows = [win]
+    if mss and win % mss == 0:
+        windows.append(f"mss*{win // mss}")
+    sc = "*" if wildcard else scale
+    for w in windows:
+        hit = table.get((ittl, w, sc, layout))
+        if hit:
+            label, generic = hit
+            return label, (T4 if generic else T3), (
+                "p0f-generic" if generic else "p0f-exact")
+    return None
+
+
+def _stack_rule(direction, ittl, win, mss, scale, layout):
+    """Signatures of current systems that the p0f database predates.
+
+    Consulted when no p0f signature names the packet's exact scale, and before
+    p0f's generic wildcard signatures, since a rule matching the exact scale is
+    more specific. Returns (label, tier) or None. The evidence for each rule is
+    set out in the developer guide.
+    """
+    if direction != "syn":
+        return None
+    # Current Linux advertises the largest multiple of its MSS that fits in
+    # the 16-bit window field: 64240 at MSS 1460 and 65280 at MSS 1360.
+    if (ittl == 64 and layout == LINUX_SYN_LAYOUT and mss
+            and win == (65535 // mss) * mss):
+        return "Linux 5.x or later", T3
+    # Windows 10 and later are reported to send a 65535 window with scale 8 in
+    # the Windows option order. Supported by secondary sources only.
+    if (ittl == 128 and layout == WINDOWS_SYN_LAYOUT and win == 65535
+            and scale == 8):
+        return "Windows 10 or later", T4
+    return None
 
 
 def pass_tcp_stack(pcap, inv):
@@ -602,24 +894,36 @@ def pass_tcp_stack(pcap, inv):
         is_synack = first(ack).lower() in ("1", "true")
         direction = "syn-ack" if is_synack else "syn"
         init_ttl = _initial_ttl(ttl_i)
-        wscale, has_ts, has_sack = _parse_tcp_options(opts)
+        mss, wscale, has_ts, has_sack, layout = _parse_tcp_options(opts)
+        scale = wscale if wscale is not None else 0
 
-        sig = (init_ttl, win_i, wscale, has_ts, has_sack)
-        if sig in STACK_SIGS:
-            os_name, dtype = STACK_SIGS[sig]
-            inv.add_by_ip(src, "os", os_name, f"tcp-stack-exact/{direction}", T3)
-            inv.add_by_ip(src, "device_type_hint", dtype,
-                          f"tcp-stack-exact/{direction}", T4)
+        # Most specific first: a p0f signature naming this exact scale, then a
+        # rule for systems newer than the database, then a p0f generic
+        # signature whose scale is a wildcard, then the TTL family.
+        table = P0F_SYNACK if is_synack else P0F_SYN
+        exact = _lookup_stack(table, init_ttl, win_i, mss, scale, layout)
+        rule = None if exact else _stack_rule(direction, init_ttl, win_i, mss,
+                                              scale, layout)
+        generic = None if (exact or rule) else _lookup_stack(
+            table, init_ttl, win_i, mss, scale, layout, wildcard=True)
+        if exact or generic:
+            label, tier, kind = exact or generic
+            inv.add_by_ip(src, "os", label, f"tcp-stack-{kind}/{direction}", tier)
+        elif rule:
+            label, tier = rule
+            inv.add_by_ip(src, "os", label, f"tcp-stack-rule/{direction}", tier)
         else:
-            # Family fallback. Window sizes vary with kernel tuning, NIC
-            # offload and intervening middleboxes, so exact matches are the
-            # exception outside controlled conditions.
+            # Family fallback, filed at T5 so that any signature or rule
+            # outranks it however many packets support the family label.
+            # Every Linux, BSD and macOS signature in p0f
+            # carries both timestamps and window scaling; minimal embedded
+            # stacks usually omit them.
             if init_ttl == 255:
                 fam = AMBIGUOUS_TTL255
             elif init_ttl == 128:
                 fam = "Windows family"
-            elif init_ttl == 64 and has_ts and (wscale or 0) >= 5:
-                fam = "Linux / BSD family"
+            elif init_ttl == 64 and has_ts and wscale is not None:
+                fam = "Linux / BSD / macOS family"
             elif init_ttl == 64:
                 fam = "embedded / minimal stack"
             elif init_ttl == 32:
@@ -627,14 +931,15 @@ def pass_tcp_stack(pcap, inv):
             else:
                 fam = None
             if fam:
-                inv.add_by_ip(src, "os", fam, f"tcp-stack-family/{direction}", T4)
+                inv.add_by_ip(src, "os", fam, f"tcp-stack-family/{direction}", T5)
 
-        # The raw signature is recorded whether or not it matched a table
-        # entry. An unmatched signature that has been captured can still be
-        # resolved later; one that was discarded cannot.
+        # The raw signature is recorded whether or not it matched. An unmatched
+        # signature that has been captured can still be resolved later; one
+        # that was discarded cannot.
         inv.add_by_ip(src, "stack_raw",
                       f"ttl={init_ttl},win={win_i},ws={wscale},"
-                      f"ts={int(has_ts)},sack={int(has_sack)}",
+                      f"ts={int(has_ts)},sack={int(has_sack)},mss={mss},"
+                      f"opts={layout}",
                       f"tcp-stack/{direction}", T2)
         inv.add_by_ip(src, "hops_from_sensor", init_ttl - ttl_i, "ttl-delta", T3)
 
@@ -647,10 +952,10 @@ def pass_tcp_stack(pcap, inv):
             continue
         attempts += 1
         port = int(dport)
-        if port >= EPHEMERAL_PORT_FLOOR:
-            # A connection to a high port is not evidence that the destination
-            # offers a service there. Recording it would fill the inventory
-            # with one entry per connection and swamp the real services.
+        if port >= EPHEMERAL_PORT_FLOOR and port not in PORT_ROLES:
+            # A connection to a high, unregistered port is not evidence that
+            # the destination offers a service there. Registered services
+            # above the floor, such as EtherNet/IP on 44818, are kept.
             continue
         if (cm := inv.ip2mac.get(src)):
             inv.assets[cm]["consumes"].add(port)
@@ -697,19 +1002,24 @@ def _record_timing(inv, convs):
 
 
 def pass_ip_stack(pcap, inv):
-    """OS inference from the IP header alone: TTL, DF, IP-ID behaviour.
+    """Operating system family from the IP header alone.
 
-    Covers UDP-only devices, which TCP fingerprinting cannot reach.
+    Covers UDP-only devices, which TCP fingerprinting cannot reach. Only the
+    initial TTL is used to name a family. The don't-fragment flag and IP
+    identification behaviour are recorded as raw evidence but not used to name
+    an operating system, because current stacks vary them by version and
+    configuration.
 
     Multicast traffic is excluded. Several discovery protocols mandate a TTL
     unrelated to the sending operating system: RFC 6762 requires 255 for mDNS,
-    while SSDP uses a small value to scope its announcements. Including either
-    would distort the initial-TTL estimate for every host that speaks them.
+    while SSDP uses a small value to scope its announcements. Traffic from
+    0.0.0.0 is excluded because it belongs to no host.
     """
     ttls, dfs, ids = defaultdict(list), defaultdict(list), defaultdict(list)
     for ip, ttl, df, ipid in tsh(
             pcap, ["ip.src", "ip.ttl", "ip.flags.df", "ip.id"],
-            "ip && !tcp && !(ip.dst >= 224.0.0.0 && ip.dst <= 239.255.255.255)"):
+            "ip && !tcp && ip.src != 0.0.0.0 "
+            "&& !(ip.dst >= 224.0.0.0 && ip.dst <= 239.255.255.255)"):
         ip, ttl = first(ip), first(ttl)
         if not (ip and ttl):
             continue
@@ -717,7 +1027,8 @@ def pass_ip_stack(pcap, inv):
             ttls[ip].append(int(ttl))
         except ValueError:
             continue
-        dfs[ip].append(first(df) == "True")
+        # Boolean fields are rendered as "True"/"False"; accept "1" as well.
+        dfs[ip].append(first(df).lower() in ("1", "true"))
         raw = first(ipid)
         if raw:
             try:
@@ -738,28 +1049,26 @@ def pass_ip_stack(pcap, inv):
             mode = "zero"
         elif len(set(seq)) == 1:
             mode = "constant"
-        elif len(seq) > 2 and all(0 < b - a <= 16 for a, b in zip(seq, seq[1:])):
-            mode = "incrementing"
+        elif len(seq) < 3:
+            mode = "insufficient"
         else:
-            mode = "random"
+            steps = [(b - a) % 65536 for a, b in zip(seq, seq[1:])]
+            small = sum(1 for s in steps if 1 <= s <= IPID_MAX_STEP)
+            mode = ("increasing" if small / len(steps) >= IPID_INCREASING_SHARE
+                    else "random")
 
         inv.add_by_ip(ip, "ip_stack_raw",
                       f"ttl={init_ttl},df={int(df)},ipid={mode}", "ip-header", T2)
         inv.add_by_ip(ip, "hops_from_sensor", init_ttl - ttl, "ttl-delta", T3)
 
-        name = IP_SIGS.get((init_ttl, df, mode))
-        if name:
-            inv.add_by_ip(ip, "os", name, "ip-header-exact", T4)
+        fam = {255: AMBIGUOUS_TTL255,
+               128: "Windows family",
+               64: "Linux, BSD, macOS or embedded (TTL 64)",
+               32: "legacy / minimal stack (TTL 32)"}.get(init_ttl)
+        if fam:
+            inv.add_by_ip(ip, "os", fam, "ip-header-family", T5)
             named += 1
-        else:
-            fam = {255: AMBIGUOUS_TTL255,
-                   128: "Windows family",
-                   64: "Linux / embedded family",
-                   32: "legacy / minimal stack (TTL 32)"}.get(init_ttl)
-            if fam:
-                inv.add_by_ip(ip, "os", fam, "ip-header-family", T4)
-                named += 1
-    print(f"  ip-stack       {len(ttls):>8} IP hosts -> {named} OS inferred")
+    print(f"  ip-stack       {len(ttls):>8} IP hosts -> {named} OS families")
 
 
 def pass_services(pcap, inv):
@@ -801,11 +1110,22 @@ def pass_services(pcap, inv):
     print("  services       roles derived from observed port direction")
 
 
+def _mentions(text, needle):
+    """True when needle occurs in text at the start of a word.
+
+    A plain substring test matches inside unrelated words, such as "ups" in
+    "backups" or "phone" in "iPhone". Requiring the match to begin at a word
+    boundary removes those errors while still accepting plurals and suffixes.
+    Both arguments are expected in lower case.
+    """
+    return re.search(r"(?<![a-z0-9])" + re.escape(needle), text) is not None
+
+
 def _banner_os(text):
     """Extract an operating system name from a free-text description."""
     low = (text or "").lower()
     for needle, os_name in BANNER_OS_HINTS:
-        if needle in low:
+        if _mentions(low, needle):
             return os_name
     return None
 
@@ -814,7 +1134,7 @@ def _banner_device_type(text):
     """Map a free-text banner or description to a device class, if one matches."""
     low = (text or "").lower()
     for needle, dtype in BANNER_DEVICE_HINTS:
-        if needle in low:
+        if _mentions(low, needle):
             return dtype
     return None
 
@@ -838,10 +1158,19 @@ def pass_infrastructure(pcap, inv):
               "cdp.deviceid", "cdp.platform", "cdp.software_version",
               "cdp.portid", "stp.root.hw", "vrrp.virt_rtr_id"]
 
-    for row in tsh(pcap, fields, dfilter, limit=ANNOUNCEMENT_SAMPLE_LIMIT):
+    cap = SourceCap()
+    for row in tsh(pcap, fields, dfilter):
         (mac, ip, sysname, sysdesc, portid, portdesc,
          devid, platform, version, cdp_port, stp_root, vrid) = row
         mac = first(mac).lower()
+        # The cap is per device and per protocol. A switch sends a BPDU every
+        # two seconds but a CDP announcement only every minute, so a cap shared
+        # across protocols would be exhausted by BPDUs before the first CDP
+        # frame, losing the model and port it carries.
+        proto = ("lldp" if (sysname or sysdesc) else "cdp" if (devid or platform)
+                 else "stp" if stp_root else "vrrp")
+        if not cap.take((mac or first(ip), proto)):
+            continue
 
         if mac and (sysname or sysdesc):
             c["lldp"] += 1
@@ -907,37 +1236,51 @@ def pass_clinical(pcap, inv):
     """
     c = defaultdict(int)
 
-    for ip, dst, calling, called, uid, version in tsh(
-            pcap, ["ip.src", "ip.dst", "dicom.assoc.ae.calling",
-                   "dicom.assoc.ae.called", "dicom.userinfo.uid",
-                   "dicom.userinfo.version"], "dicom",
-            limit=PAYLOAD_SAMPLE_LIMIT):
-        ip, dst = first(ip), first(dst)
+    # Only association requests (PDU type 1) are used for titles. An accept
+    # (PDU type 2) repeats the same two titles in the opposite direction, so
+    # reading titles from it would give each host the other's title. The
+    # implementation version and UID in either PDU describe its own sender.
+    cap = SourceCap()
+    for ip, dst, pdu, calling, called, uid, version in tsh(
+            pcap, ["ip.src", "ip.dst", "dicom.pdu.type",
+                   "dicom.assoc.ae.calling", "dicom.assoc.ae.called",
+                   "dicom.userinfo.uid", "dicom.userinfo.version"],
+            "dicom.pdu.type == 1 || dicom.pdu.type == 2"):
+        ip, dst, pdu = first(ip), first(dst), first(pdu)
+        if not ip or not cap.take((ip, dst, pdu)):
+            continue
+        try:
+            pdu_type = int(pdu, 0)
+        except ValueError:
+            continue
         calling, called = first(calling).strip(), first(called).strip()
-        if ip and calling:
+        if pdu_type == 1 and calling:
             inv.add_by_ip(ip, "ae_title", calling, "dicom-calling-ae", T1)
             inv.add_by_ip(ip, "device_type", "imaging modality",
                           "dicom-calling-ae", T2)
             c["dicom"] += 1
-        if dst and called:
+        if pdu_type == 1 and dst and called:
             # The called AE title names the peer, so it is attributed to the
             # destination host rather than to the sender.
             inv.add_by_ip(dst, "ae_title", called, "dicom-called-ae", T1)
             inv.add_by_ip(dst, "device_type", "pacs / image archive",
                           "dicom-called-ae", T2)
-        if ip and version:
+        if version:
             inv.add_by_ip(ip, "software", first(version),
                           "dicom-implementation-version", T1)
-        if ip and uid:
+        if uid:
             inv.add_by_ip(ip, "dicom_impl_uid", first(uid),
                           "dicom-implementation-uid", T2)
 
     # HL7 identifiers live in the pipe-delimited MSH segment, which has no
     # dedicated dissector fields, so the segment is read from the payload.
+    # The cap is per host pair because receiving applications are attributed
+    # to the destination.
+    cap = SourceCap()
     for ip, dst, payload in tsh(pcap, ["ip.src", "ip.dst", "tcp.payload"],
-                                "hl7", limit=PAYLOAD_SAMPLE_LIMIT):
+                                "hl7"):
         ip, dst, payload = first(ip), first(dst), first(payload)
-        if not (ip and payload):
+        if not (ip and payload) or not cap.take((ip, dst)):
             continue
         try:
             txt = binascii.unhexlify(payload.replace(":", "")).decode(
@@ -974,13 +1317,13 @@ def pass_industrial(pcap, inv):
     """
     c = defaultdict(int)
 
+    cap = SourceCap()
     for ip, vendor, product, serial, dtype, major, minor in tsh(
             pcap, ["ip.src", "cip.id.vendor_id", "cip.id.product_name",
                    "cip.id.serial_number", "cip.id.device_type",
-                   "cip.id.major_rev", "cip.id.minor_rev"], "cip",
-            limit=PAYLOAD_SAMPLE_LIMIT):
+                   "cip.id.major_rev", "cip.id.minor_rev"], "cip"):
         ip = first(ip)
-        if not ip:
+        if not ip or not cap.take(ip):
             continue
         if product:
             inv.add_by_ip(ip, "model", first(product), "cip-identity", T1)
@@ -997,11 +1340,12 @@ def pass_industrial(pcap, inv):
             rev = first(major) + ("." + first(minor) if minor else "")
             inv.add_by_ip(ip, "firmware", rev, "cip-identity", T1)
 
+    cap = SourceCap()
     for ip, rosctr, iec_type in tsh(
             pcap, ["ip.src", "s7comm.header.rosctr", "iec60870_asdu.typeid"],
-            "s7comm || iec60870_asdu", limit=PAYLOAD_SAMPLE_LIMIT):
+            "s7comm || iec60870_asdu"):
         ip = first(ip)
-        if not ip:
+        if not ip or not cap.take(ip):
             continue
         if rosctr:
             inv.add_by_ip(ip, "service", "s7comm", "s7comm-traffic", T3)
@@ -1014,38 +1358,65 @@ def pass_industrial(pcap, inv):
     print(f"  industrial     {summary if summary else 'none found'}")
 
 
+TEXT_TYPES = ("x509sat.uTF8String", "x509sat.printableString",
+              "x509sat.teletexString", "x509sat.bMPString",
+              "x509sat.universalString", "x509sat.IA5String")
+OID_COMMON_NAME = "2.5.4.3"
+
+
+def _rdn_text(name_tree, oid):
+    """Text of the name component with the given OID, from a parsed name."""
+    for component in _jdicts(name_tree, "x509if.oid"):
+        if component["x509if.oid"][0] == oid:
+            for key in TEXT_TYPES:
+                value = next(_jvalues(component, key), None)
+                if value:
+                    return value
+    return None
+
+
 def pass_tls(pcap, inv):
     """TLS handshake metadata.
 
     Server certificates are presented in the clear during the handshake. The
     subject common name is chosen by whoever provisioned the device and on
-    embedded equipment frequently contains the model or serial number. The JA3
-    hash summarises client hello parameters and characterises the TLS library
-    rather than the host, so it is recorded as a raw attribute rather than
-    resolved to a product.
+    embedded equipment frequently contains the model or serial number. It is
+    read from the protocol tree, selecting the subject (not the issuer) of the
+    first certificate, which is the server's own, and the component whose OID
+    is commonName. The JA3 hash summarises client hello parameters and
+    characterises the TLS library rather than the host, so it is recorded as a
+    raw attribute rather than resolved to a product.
     """
     c = defaultdict(int)
 
-    for ip, cn, san in tsh(
-            pcap, ["ip.src", "x509sat.printableString", "x509ce.dNSName"],
-            "tls.handshake.type==11", limit=PAYLOAD_SAMPLE_LIMIT):
-        ip, cn, san = first(ip), first(cn), first(san)
-        if ip and cn:
+    cap = SourceCap()
+    for pkt in tsh_json(pcap, "tls.handshake.type == 11"):
+        ip = next(_jvalues(pkt, "ip.src"), None)
+        if not ip or not cap.take(ip):
+            continue
+        cert = next(_jdicts(pkt, "x509af.subject_tree"), None)
+        if cert is None:
+            continue
+        cn = _rdn_text(cert["x509af.subject_tree"][0], OID_COMMON_NAME)
+        if cn:
             inv.add_by_ip(ip, "cert_subject", cn[:80], "tls-certificate", T1)
             c["cert"] += 1
             if (dt := _banner_device_type(cn)):
                 inv.add_by_ip(ip, "device_type", dt, "tls-certificate", T2)
-        if ip and san:
+        san = next(_jvalues(cert, "x509ce.dNSName"), None)
+        if san:
             inv.add_by_ip(ip, "cert_san", san[:80], "tls-certificate-san", T1)
 
+    cap = SourceCap()
     for ip, sni, ja3 in tsh(
             pcap, ["ip.src", "tls.handshake.extensions_server_name",
-                   "tls.handshake.ja3"],
-            "tls.handshake.type==1", limit=PAYLOAD_SAMPLE_LIMIT):
+                   "tls.handshake.ja3"], "tls.handshake.type == 1"):
         ip, sni, ja3 = first(ip), first(sni), first(ja3)
-        if ip and sni:
+        if not ip or not cap.take(ip):
+            continue
+        if sni:
             inv.add_by_ip(ip, "tls_sni_requested", sni[:80], "tls-sni", T2)
-        if ip and ja3:
+        if ja3:
             inv.add_by_ip(ip, "ja3", ja3, "tls-client-hello", T2)
             c["ja3"] += 1
 
@@ -1168,10 +1539,10 @@ def pass_selfdeclared(pcap, inv):
     # RTSP identity lives in a response header with no dedicated field, so the
     # payload must be read. Kept separate because payload extraction is far
     # more expensive than field extraction.
-    for ip, payload in tsh(pcap, ["ip.src", "tcp.payload"], "rtsp",
-                           limit=PAYLOAD_SAMPLE_LIMIT):
+    cap = SourceCap()
+    for ip, payload in tsh(pcap, ["ip.src", "tcp.payload"], "rtsp"):
         ip, payload = first(ip), first(payload)
-        if not (ip and payload):
+        if not (ip and payload) or not cap.take(ip):
             continue
         try:
             txt = binascii.unhexlify(payload.replace(":", "")).decode(
@@ -1204,8 +1575,9 @@ def _harvest_service_types(inv, ip, blobs, counter):
                     continue
                 if (hit := MDNS_SERVICE_TYPES.get(part.lower())):
                     dtype, svc = hit
-                    inv.add_by_ip(ip, "device_type", dtype,
-                                  f"mdns-service{part}", T2)
+                    if dtype:
+                        inv.add_by_ip(ip, "device_type", dtype,
+                                      f"mdns-service{part}", T2)
                     inv.add_by_ip(ip, "service", svc,
                                   f"mdns-service{part}", T2)
                     counter["mdns-sd"] += 1
@@ -1214,25 +1586,28 @@ def _harvest_service_types(inv, ip, blobs, counter):
 def pass_banners(pcap, inv):
     """Text banners and management descriptions in which hosts name themselves.
 
-    SSH, FTP, SMTP and Telnet servers announce their software on connection.
-    SNMP sysDescr, SIP User-Agent headers and SSDP SERVER headers are equally
+    SSH, FTP and SMTP servers announce their software on connection. SNMP
+    sysDescr, SIP User-Agent headers and SSDP SERVER headers are equally
     explicit. These are among the most specific identifiers available
-    passively, frequently naming the exact model and firmware revision. All are
-    read in one pass and dispatched on whichever fields are populated.
+    passively, frequently naming the exact model and firmware revision. All
+    but SNMP are read in one pass and dispatched on whichever fields are
+    populated; SNMP needs the protocol tree and is read by _harvest_snmp().
     """
     c = defaultdict(int)
 
-    dfilter = ("ssh.protocol || ftp.response || smtp.rsp.parameter "
-               "|| sip.User-Agent || snmp.name || nbns.name "
+    # FTP and SMTP servers identify themselves in the 220 greeting sent when a
+    # connection opens (RFC 959, RFC 5321), so only that reply is read.
+    dfilter = ("ssh.protocol || ftp.response.code == 220 "
+               "|| smtp.response.code == 220 || sip.User-Agent || nbns.name "
                "|| (udp.port==1900 && http.server)")
-    fields = ["ip.src", "udp.srcport",
-              "ssh.protocol", "ftp.response.arg", "smtp.rsp.parameter",
-              "sip.User-Agent", "snmp.name", "snmp.value.octets",
-              "nbns.name", "http.server"]
+    fields = ["ip.src", "udp.srcport", "ssh.protocol",
+              "ftp.response.code", "ftp.response.arg",
+              "smtp.response.code", "smtp.rsp.parameter",
+              "sip.User-Agent", "nbns.name", "http.server"]
 
     for row in tsh(pcap, fields, dfilter):
-        (ip, usport, ssh_b, ftp_arg, smtp_param, sip_ua,
-         snmp_oid, snmp_octets, nb_name, http_server) = row
+        (ip, usport, ssh_b, ftp_code, ftp_arg, smtp_code, smtp_param,
+         sip_ua, nb_name, http_server) = row
         ip = first(ip)
         if not ip:
             continue
@@ -1243,7 +1618,7 @@ def pass_banners(pcap, inv):
             c["ssh"] += 1
             low = banner.lower()
             for needle, os_name in SSH_OS_HINTS:
-                if needle in low:
+                if _mentions(low, needle):
                     # The distribution string is stated by the host, but the
                     # mapping to an operating system is an inference from it.
                     inv.add_by_ip(ip, "os", os_name, "ssh-banner-distro", T2)
@@ -1251,11 +1626,11 @@ def pass_banners(pcap, inv):
             if (dt := _banner_device_type(banner)):
                 inv.add_by_ip(ip, "device_type", dt, "ssh-banner", T2)
 
-        if ftp_arg and len(ftp_arg) > 4:
+        if first(ftp_code) == "220" and ftp_arg:
             inv.add_by_ip(ip, "software", ftp_arg[:100], "ftp-banner", T1)
             c["ftp"] += 1
 
-        if smtp_param and len(smtp_param) > 8:
+        if first(smtp_code) == "220" and smtp_param:
             inv.add_by_ip(ip, "software", smtp_param[:100], "smtp-banner", T1)
             c["smtp"] += 1
 
@@ -1271,9 +1646,6 @@ def pass_banners(pcap, inv):
             if ua and not ua[0].isdigit():
                 inv.add_by_ip(ip, "vendor", ua.split("-")[0].split("/")[0],
                               "sip-user-agent", T2)
-
-        if snmp_oid and snmp_octets:
-            _harvest_snmp(inv, ip, snmp_oid, snmp_octets, c)
 
         if nb_name:
             name = first(nb_name).split("<")[0].strip()
@@ -1292,40 +1664,58 @@ def pass_banners(pcap, inv):
             if (osn := _banner_os(http_server)):
                 inv.add_by_ip(ip, "os", osn, "ssdp-server-header", T1)
 
+    _harvest_snmp(pcap, inv, c)
+
     summary = ", ".join(f"{k}={v}" for k, v in sorted(c.items()))
     print(f"  banners        {summary if summary else 'none found'}")
 
 
-def _harvest_snmp(inv, ip, oids, octets, counter):
+SNMP_SYSDESCR = "1.3.6.1.2.1.1.1"
+SNMP_SYSNAME = "1.3.6.1.2.1.1.5"
+SNMP_SYSLOCATION = "1.3.6.1.2.1.1.6"
+
+
+def _harvest_snmp(pcap, inv, counter):
     """Read the SNMP system group, which a device supplies about itself.
 
-    Values arrive hex-encoded, and a single response may carry several
-    bindings, so object identifiers and values are paired positionally.
+    Each variable binding is read from the protocol tree, where its object
+    identifier and value stay together. Field output lists names and values
+    as separate lists, and since only string values appear in the octet-string
+    list, pairing them by position misaligns as soon as a response mixes value
+    types. Values arrive hex-encoded.
     """
-    for oid, value in zip(oids.split(","), octets.split(",")):
-        if not oid.startswith("1.3.6.1.2.1.1."):
+    cap = SourceCap()
+    for pkt in tsh_json(pcap, "snmp"):
+        ip = next(_jvalues(pkt, "ip.src"), None)
+        if not ip or not cap.take(ip):
             continue
-        try:
-            text = bytes.fromhex(value.replace(":", "")).decode("utf-8",
-                                                               "ignore").strip()
-        except ValueError:
-            continue
-        if not text:
-            continue
-        if oid.startswith("1.3.6.1.2.1.1.1"):              # sysDescr
-            inv.add_by_ip(ip, "software", text[:120], "snmp-sysdescr", T1)
-            if (dt := _banner_device_type(text)):
-                inv.add_by_ip(ip, "device_type", dt, "snmp-sysdescr", T1)
-            if (osn := _banner_os(text)):
-                inv.add_by_ip(ip, "os", osn, "snmp-sysdescr", T1)
-            if text.split():
-                inv.add_by_ip(ip, "vendor", text.split()[0],
-                              "snmp-sysdescr", T2)
-            counter["snmp"] += 1
-        elif oid.startswith("1.3.6.1.2.1.1.5"):            # sysName
-            inv.add_by_ip(ip, "hostname", text, "snmp-sysname", T1)
-        elif oid.startswith("1.3.6.1.2.1.1.6"):            # sysLocation
-            inv.add_by_ip(ip, "location", text, "snmp-syslocation", T1)
+        for binding in _jdicts(pkt, "snmp.name"):
+            oid = binding["snmp.name"][0]
+            octets = (binding.get("snmp.value.octets") or [None])[0]
+            if not octets or not oid.startswith("1.3.6.1.2.1.1."):
+                continue
+            try:
+                text = bytes.fromhex(octets.replace(":", "")).decode(
+                    "utf-8", "ignore").strip()
+            except ValueError:
+                continue
+            if not text:
+                continue
+            base = oid.rsplit(".", 1)[0] if oid.endswith(".0") else oid
+            if base == SNMP_SYSDESCR:
+                inv.add_by_ip(ip, "software", text[:120], "snmp-sysdescr", T1)
+                if (dt := _banner_device_type(text)):
+                    inv.add_by_ip(ip, "device_type", dt, "snmp-sysdescr", T1)
+                if (osn := _banner_os(text)):
+                    inv.add_by_ip(ip, "os", osn, "snmp-sysdescr", T1)
+                if text.split():
+                    inv.add_by_ip(ip, "vendor", text.split()[0],
+                                  "snmp-sysdescr", T2)
+                counter["snmp"] += 1
+            elif base == SNMP_SYSNAME:
+                inv.add_by_ip(ip, "hostname", text, "snmp-sysname", T1)
+            elif base == SNMP_SYSLOCATION:
+                inv.add_by_ip(ip, "location", text, "snmp-syslocation", T1)
 
 
 def protocol_census(pcap):
@@ -1366,21 +1756,24 @@ PASS_REQUIREMENTS = {
 }
 
 
+TTL255_GENERAL = "general-purpose stack with TTL 255 (network OS or legacy Unix)"
+TTL255_MINIMAL = "minimal embedded stack (TTL 255)"
+TTL255_DECLARED = "embedded stack (TTL 255)"
+
+
 def refine_ambiguous(inv):
-    """Narrow deliberately ambiguous OS labels using independent evidence.
+    """Narrow the TTL-255 label where independent evidence supports a verdict.
 
-    TTL 255 is the default for industrial stacks and for Solaris and AIX alike,
-    so the stack passes emit an ambiguous label that is resolved here.
+    Stack richness is evaluated first. A general-purpose operating system
+    presents a feature-rich stack, with window scaling, SACK, timestamps and a
+    large receive window, whereas a minimal embedded stack does not, and that
+    holds regardless of which application protocol the host speaks. Where no
+    TCP signature exists, a device type the host declared about itself is
+    used. Speaking an OT protocol alone is not used, because a general-purpose
+    host can run an OT gateway.
 
-    Order matters: stack richness is evaluated before service hints. A
-    general-purpose operating system presents a feature-rich stack, with window
-    scaling, SACK, timestamps and a large receive window, whereas an industrial
-    stack is minimal. That property holds regardless of which application
-    protocol the host happens to speak, which makes it the stronger of the two
-    discriminators, since a general-purpose host can run an OT gateway.
-
-    Where nothing corroborates a verdict, the ambiguous label is retained
-    rather than resolved, so that the uncertainty is visible in the output.
+    Where nothing supports a verdict, the ambiguous label is retained so that
+    the uncertainty is visible in the output.
     """
     resolved = 0
     for mac in list(inv.assets):
@@ -1395,39 +1788,19 @@ def refine_ambiguous(inv):
         features = sum([has_ws, has_ts, has_sack])
 
         verdict, source, tier = None, None, None
-
         if win is not None:
             if features >= 2 and win >= 16384:
-                # Rich stack: window scaling / SACK / timestamps and a large
-                # receive window. Industrial stacks do not look like this.
-                verdict, source, tier = ("Solaris / AIX family",
+                verdict, source, tier = (TTL255_GENERAL,
                                          "ttl255+feature-rich-stack", T3)
             elif features == 0 and win <= 8192:
-                verdict, source, tier = ("VxWorks / industrial stack",
+                verdict, source, tier = (TTL255_MINIMAL,
                                          "ttl255+minimal-stack", T3)
 
-        if verdict is None:
-            # No usable TCP signature, i.e. a UDP-only host. Speaking an OT
-            # protocol is not sufficient on its own, since a general-purpose
-            # host can run an OT gateway.
-            #
-            # A self-declared embedded device role is sufficient. A BACnet
-            # I-Am announces "I am a BACnet device" together with a vendor ID,
-            # whereas a Who-Is is a management query that any host can send,
-            # so only the former identifies an embedded controller.
-            declared = inv.values(mac, "device_type")
-            if declared & EMBEDDED_DEVICE_CLASSES:
-                # The host has identified itself as purpose-built hardware
-                # rather than a general-purpose server, which excludes the
-                # Solaris and AIX reading of a TTL-255 signature.
-                verdict, source, tier = ("embedded / industrial stack",
-                                         "ttl255+self-declared-device-class", T4)
-            elif any("controller" in d or "plc" in d for d in declared):
-                verdict, source, tier = ("VxWorks / industrial stack",
-                                         "ttl255+self-declared-controller", T4)
-            # Otherwise the ambiguous label is retained. A UDP-only TTL-255
-            # host that declares nothing about itself cannot be separated from
-            # the Solaris and AIX family on the available evidence.
+        if verdict is None and inv.values(mac, "device_type") & EMBEDDED_DEVICE_CLASSES:
+            # A BACnet I-Am, an LLDP description or a similar statement has
+            # identified the host as purpose-built hardware.
+            verdict, source, tier = (TTL255_DECLARED,
+                                     "ttl255+self-declared-device-class", T4)
 
         if verdict:
             inv.drop(mac, "os", AMBIGUOUS_TTL255)
@@ -1524,23 +1897,6 @@ VENDOR_ALIASES = [
     {"sun", "sunmicrosystems", "oracle"},
 ]
 
-OS_EQUIV = {
-    "windows 10/11": ["windows 10", "windows 11"],
-    "windows server": ["windows server"],
-    "windows family": ["windows"],
-    "linux (modern kernel)": ["linux"],
-    "linux / bsd family": ["linux", "bsd"],
-    "linux / embedded family": ["linux", "embedded linux"],
-    "embedded linux": ["embedded linux"],
-    "embedded linux / rtos": ["embedded linux", "rtos"],
-    "embedded rtos": ["rtos"],
-    "vxworks / industrial stack": ["vxworks"],
-    "solaris / aix family": ["solaris", "aix"],
-    "cisco ios": ["cisco ios", "ios"],
-    "cisco ios xe": ["cisco ios", "ios-xe"],
-    "embedded / industrial stack": ["vxworks", "rtos", "embedded"],
-    "printer firmware": ["printer firmware"],
-}
 
 
 def vendor_ok(found, truth):
@@ -1552,14 +1908,35 @@ def vendor_ok(found, truth):
     return any(f in g and t in g for g in VENDOR_ALIASES)
 
 
+# Operating system families for scoring. Extracted labels are often a family,
+# or a list of possible families, while a truth file may name a specific
+# product. A result is scored correct when the two share a family. The scorer
+# therefore measures family-level agreement, not version-level identification.
+OS_FAMILIES = {
+    "windows": ("windows",),
+    "linux": ("linux", "android"),
+    "bsd": ("freebsd", "openbsd", "netbsd", "bsd"),
+    "apple": ("mac os", "macos", "iphone", "ipad"),
+    "solaris": ("solaris", "sunos", "legacy unix"),
+    "network-os": ("cisco ios", "ios xe", "ios-xe", "nx-os", "junos",
+                   "routeros", "network os"),
+    "embedded": ("embedded", "rtos", "vxworks", "qnx", "freertos",
+                 "printer firmware", "minimal"),
+}
+
+
+def _os_families(text):
+    low = (text or "").lower()
+    return {fam for fam, tokens in OS_FAMILIES.items()
+            if any(tok in low for tok in tokens)}
+
+
 def os_ok(found, truth):
-    if not found:
+    if not found or not truth:
         return False
-    f, t = found.lower(), (truth or "").lower()
-    for pat in OS_EQUIV.get(f, [f]):
-        if pat in t or t in pat:
-            return True
-    return False
+    if found.lower() == truth.lower():
+        return True
+    return bool(_os_families(found) & _os_families(truth))
 
 
 def score(inv, truth_path):
@@ -1622,9 +1999,8 @@ def main():
     ap.add_argument("--evidence", default="evidence.csv")
     ap.add_argument("--score", help="ground_truth.csv to score against")
     ap.add_argument("--sample-limit", type=int, default=None,
-                    help="Row cap for payload and announcement passes "
-                         "(default 3000 and 2000 respectively). Raise it when "
-                         "a value may appear only late in a long capture.")
+                    help="Maximum rows read per source in payload and "
+                         "announcement passes (default 100).")
     ap.add_argument("--all-passes", action="store_true",
                     help="Run every pass regardless of which protocols the "
                          "capture contains. Slower, but useful if a dissector "
@@ -1642,25 +2018,27 @@ def main():
         probe = subprocess.run(["tshark", "-r", args.pcap, "-c", "1"],
                                capture_output=True, text=True, check=False)
     except FileNotFoundError:
-        sys.exit("ERROR: tshark not found. Install it with:\n"
-                 "  sudo apt install tshark")
+        sys.exit(TSHARK_MISSING)
     if probe.returncode != 0:
         msg = probe.stderr.strip().splitlines()
         hint = ""
         if any("permission" in m.lower() for m in msg):
-            hint = ("\nHINT: AppArmor confines tshark on Ubuntu 24.04. Check:"
-                    "\n  sudo dmesg | grep -i apparmor | grep tshark")
+            hint = "\nHINT: tshark was refused access to the file."
+            if sys.platform.startswith("linux"):
+                hint += (" A confinement policy such as AppArmor may be"
+                         " restricting it. Check:"
+                         "\n  sudo dmesg | grep -i apparmor | grep tshark")
+            hint += "\nSee README.md, Troubleshooting."
         sys.exit(f"ERROR: tshark cannot read '{args.pcap}':\n"
                  + "\n".join(msg[-3:]) + hint)
     if args.score and not os.path.isfile(args.score):
         sys.exit(f"ERROR: ground truth '{args.score}' does not exist.")
 
     if args.sample_limit:
-        globals()["PAYLOAD_SAMPLE_LIMIT"] = args.sample_limit
-        globals()["ANNOUNCEMENT_SAMPLE_LIMIT"] = args.sample_limit
+        globals()["PER_SOURCE_SAMPLE_LIMIT"] = args.sample_limit
 
     inv = Inventory()
-    print(f"extracting from {args.pcap}  (passive - no packets sent)")
+    print(f"extracting from {args.pcap}...")
 
     # pass_inventory must run first, as it builds the IP-to-MAC map that the
     # remaining passes rely on. Those passes are independent and individually

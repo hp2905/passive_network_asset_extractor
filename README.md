@@ -133,7 +133,8 @@ python extract.py "C:\Users\Name\My Captures\site.pcapng"
   --assets PATH          Asset inventory output path (default: assets.csv)
   --evidence PATH        Evidence trail output path (default: evidence.csv)
   --score PATH           Score the result against a known-truth CSV
-  --sample-limit N       Row cap for payload and announcement passes
+  --sample-limit N       Maximum rows read per source in payload and
+                         announcement passes (default 100)
   --all-passes           Run every pass regardless of protocols present
 ```
 
@@ -180,15 +181,20 @@ misidentified or spoofed, and both are worth investigating.
 |---|---|---|
 | T1 · 0.95 | The device stated it | BACnet I-Am, IPP printer model, LLDP description, SNMP sysDescr, DHCP hostname, LDAP bind DN, SSH banner |
 | T2 · 0.75 | A registry or fingerprint implies it | OUI vendor, DHCP option 55, raw stack signature, TLS SNI, mDNS service type |
-| T3 · 0.50 | Inferred from behaviour | TCP stack signature, service direction, timing regularity |
-| T4 · 0.30 | A weak hint | IP-header-only OS, stack family fallback, VLAN co-location |
+| T3 · 0.50 | Inferred from behaviour or a specific published signature | p0f TCP signature, service direction, VLAN protocol mix, periodic timing |
+| T4 · 0.30 | A weak or generic indication | p0f generic signature, signature rule for recent systems, irregular timing |
+| T5 · 0.20 | Operating system family only | Initial TTL, with at most the presence of TCP options |
 
-Higher tiers win absolutely: a single T1 record outranks any number of T4
+Higher tiers win absolutely: a single T1 record outranks any number of T5
 records. Where several independent sources agree on the same value, confidence
 rises slightly, capped below certainty.
 
 The tier values are ordinal ranks expressed as decimals rather than measured
-probabilities. Note also that T1 assumes devices report themselves honestly. On
+probabilities.
+
+TCP stack signatures are transcribed from the p0f 3.09b database, which dates
+from 2016. Two documented rules extend it to current Windows and Linux; other
+recent systems receive a family label rather than a guessed version. Note also that T1 assumes devices report themselves honestly. On
 a network where an adversary may be present, self-declared evidence becomes the
 least trustworthy category rather than the most.
 
@@ -240,14 +246,17 @@ to the registry name.
 ### Ambiguity is reported, not hidden
 
 Some signatures cannot be resolved from the available evidence. An initial TTL
-of 255 is the default for industrial stacks and for Solaris and AIX alike.
-Where nothing corroborates one reading over the other, the tool reports the
-ambiguity rather than guessing.
+of 255 is used by network equipment, legacy Unix and some embedded stacks, and
+does not identify an operating system on its own. Where nothing corroborates
+one reading over another, the tool reports the ambiguity rather than guessing.
+Likewise, where no published signature matches, the tool reports only the
+operating system family.
 
 ### Known limitations
 
-- The signature tables cover a limited set of stacks. An unlisted signature
-  receives a family-level label instead of an exact one. The raw signature is
+- The TCP signatures come from a database that predates current operating
+  system releases. An unlisted signature receives a family-level label instead
+  of an exact one. The raw signature, including the TCP option order, is
   recorded in every case, so an unmatched host remains a resolvable lead.
 - Identity is keyed on MAC address. Hosts behind network address translation
   collapse into a single entry, and routers appear to own every address behind
@@ -274,6 +283,12 @@ SCORE vs ground truth
   zone          28/28  100.0%
   vlan          28/28  100.0%
 ```
+
+Operating systems are scored at family level: a result counts as correct when
+it shares a family, such as Windows, Linux or embedded, with the expected
+value. A family label listing several possibilities counts as correct when the
+expected family is among them. The score therefore measures family-level
+agreement, not identification of a specific version.
 
 The truth file is a CSV requiring these columns:
 
